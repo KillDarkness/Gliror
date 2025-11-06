@@ -18,7 +18,7 @@ pub fn parse_headers(header_args: &[String]) -> HashMap<String, String> {
     name = "GLIROR",
     about = "High-performance DoS tool with colorful status display",
     author = "GLIROR Team",
-    version = "1.0.1"
+    version = "1.0.2"
 )]
 pub struct Args {
     /// Target URL to attack
@@ -56,4 +56,12 @@ pub struct Args {
     /// Output results to a file (JSON format)
     #[clap(short = 'o', long, value_parser)]
     pub output: Option<String>,
+    
+    /// Ramp-up time in seconds (gradually increase to target concurrent requests)
+    #[clap(short = 'r', long, value_parser)]
+    pub ramp_up: Option<u64>,
+    
+    /// Scheduled start time (format: "YYYY-MM-DD HH:MM:SS" or delay in seconds)
+    #[clap(short = 's', long, value_parser)]
+    pub schedule: Option<String>,
 }
