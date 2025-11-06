@@ -120,3 +120,22 @@ GLIROR automatically monitors for:
 - **Help System**: Built-in help with `--help`
 - **Version Information**: Version info with `--version` (no ASCII art)
 - **Interactive Mode**: Prompts when required parameters are missing
+- **Results Output**: Save structured results to JSON files with `--output`
+
+## Results Output
+
+GLIROR can save test results to structured JSON files using the `--output` option:
+
+```bash
+# Save results to a JSON file
+gliror -u https://example.com -c 50 -t 120 -o results.json
+
+# The output file contains structured data including:
+# - Total requests sent
+# - Successful and failed requests
+# - Success rate percentage
+# - Average requests per second
+# - Average response time
+# - Duration of the test
+# - Target URL and HTTP method
+```
