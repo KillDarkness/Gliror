@@ -31,21 +31,6 @@ fn parse_schedule_time(schedule: Option<String>) -> Option<Instant> {
     None
 }
 
-// Calculate current concurrent requests based on ramp-up
-fn calculate_ramp_up_concurrent(elapsed: Duration, ramp_up: u64, target_concurrent: u32) -> u32 {
-    if ramp_up == 0 {
-        return target_concurrent;
-    }
-    
-    let elapsed_secs = elapsed.as_secs();
-    if elapsed_secs >= ramp_up {
-        target_concurrent
-    } else {
-        let factor = elapsed_secs as f64 / ramp_up as f64;
-        (target_concurrent as f64 * factor).round() as u32
-    }
-}
-
 #[derive(Serialize)]
 struct AttackResults {
     total_requests: u64,
