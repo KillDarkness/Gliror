@@ -45,5 +45,5 @@ async fn main() {
         println!("{} Proxy: {}", "INFO".blue(), proxy);
     }
     
-    perform_attack(target_url, duration, args.method, headers, args.data, args.proxy, args.concurrent, args.delay, args.output).await;
+    perform_attack(target_url, duration, args.method, headers, args.data, args.proxy, args.concurrent, args.delay, args.output, args.ramp_up, args.schedule).await;
 }
