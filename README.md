@@ -20,7 +20,7 @@ Comprehensive documentation is available in the [docs](docs/) directory:
 
 ## Features
 
-- **ASCII Art Display**: Shows "KILLDOS" in cyan ASCII art at startup (intentionally kept as requested)
+- **ASCII Art Display**: Shows ASCII art in cyan at startup (intentionally kept as requested)
 - **Concurrent Requests**: Sends thousands of requests per second using async/await
 - **Configurable Duration**: Set attack duration or run unlimited
 - **Real-time Status**: Displays live statistics with colors
