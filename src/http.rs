@@ -3,6 +3,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use reqwest;
 use serde::Serialize;
 use std::collections::HashMap;
+use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -57,12 +58,43 @@ pub async fn perform_attack(
     ramp_up: Option<u64>,
     schedule: Option<String>
 ) {
-    // Handle scheduling
+    // Handle scheduling with countdown
     if let Some(scheduled_time) = parse_schedule_time(schedule) {
-        let wait_duration = scheduled_time.saturating_duration_since(Instant::now());
-        if !wait_duration.is_zero() {
-            println!("{} Scheduled start in {:.1} seconds", "INFO".blue(), wait_duration.as_secs_f64());
-            tokio::time::sleep(wait_duration).await;
+        let total_wait_duration = scheduled_time.saturating_duration_since(Instant::now());
+        if !total_wait_duration.is_zero() {
+            // Show initial message that will be updated
+            print!("\r{} Scheduled start in {:.1} seconds", "INFO".blue(), total_wait_duration.as_secs_f64());
+            std::io::stdout().flush().unwrap();
+            
+            // Variables that might be used in future enhancements
+            let _start_time = Instant::now();
+            let _total_duration = total_wait_duration;
+            
+            // Show a countdown that updates the same line
+            let mut current_wait = total_wait_duration;
+            while current_wait.as_secs() > 0 {
+                let minutes = current_wait.as_secs() / 60;
+                let seconds = current_wait.as_secs() % 60;
+                
+                if minutes > 0 {
+                    print!("\r{} Scheduled start in {} minute{} and {} second{}", "INFO".blue(), minutes, if minutes == 1 { "" } else { "s" }, seconds, if seconds == 1 { "" } else { "s" });
+                } else {
+                    print!("\r{} Scheduled start in {} second{}", "INFO".blue(), seconds, if seconds == 1 { "" } else { "s" });
+                }
+                
+                std::io::stdout().flush().unwrap();
+                
+                // Sleep for 1 second
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                
+                // Recalculate remaining time
+                current_wait = scheduled_time.saturating_duration_since(Instant::now());
+            }
+            
+            // Final message when countdown completes
+            print!("\r{} Scheduled start time reached! Duration: {:.1} seconds              ", "INFO".green(), total_wait_duration.as_secs_f64());
+            std::io::stdout().flush().unwrap();
+            println!(); // New line after the countdown
         }
     }
     
