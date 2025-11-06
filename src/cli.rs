@@ -53,4 +53,8 @@ pub struct Args {
     /// Delay between requests in milliseconds
     #[clap(short = 'w', long, value_parser, default_value_t = 0)]
     pub delay: u64,
+    
+    /// Output results to a file (JSON format)
+    #[clap(short = 'o', long, value_parser)]
+    pub output: Option<String>,
 }
