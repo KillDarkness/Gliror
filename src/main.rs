@@ -52,5 +52,5 @@ async fn main() {
     }
     
     // Start the attack
-    perform_attack(target_url, duration, args.method, headers, args.data, args.proxy, args.concurrent, args.delay).await;
+    perform_attack(target_url, duration, args.method, headers, args.data, args.proxy, args.concurrent, args.delay, args.output).await;
 }
