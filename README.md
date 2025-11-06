@@ -2,6 +2,20 @@
 
 A high-performance DoS (Denial of Service) tool written in Rust with colorful status display, error detection, and performance monitoring.
 
+## Documentation
+
+Comprehensive documentation is available in the [docs](docs/) directory:
+
+- [Overview](docs/overview.md) - Introduction and core concepts
+- [Installation](docs/installation.md) - How to install and set up GLIROR
+- [Usage](docs/usage.md) - Detailed usage instructions and examples
+- [Features](docs/features.md) - In-depth feature explanations
+- [Advanced Usage](docs/advanced.md) - Advanced techniques and best practices
+- [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
+- [Performance Tips](docs/performance.md) - Optimizing GLIROR performance
+- [Legal Notice](docs/legal.md) - Important legal information
+- [FAQ](docs/faq.md) - Frequently asked questions
+
 ## Features
 
 - **ASCII Art Display**: Shows "KILLDOS" in cyan ASCII art at startup (intentionally kept as requested)
@@ -117,13 +131,10 @@ The tool provides real-time warnings for:
 - `clap` - Command line argument parsing
 - `colored` - Colored terminal output
 - `indicatif` - Progress bar and status display
-- `serde` - Serialization/deserialization
-- `rand` - Random number generation
-- `tokio-stream` - Async stream utilities
 
 ## Important Note
 
-This tool is intended for educational purposes and authorized penetration testing only. Misuse of this tool against systems without explicit permission may be illegal and could cause service disruptions. Always obtain proper authorization before testing.
+This tool is intended for educational purposes and authorized penetration testing only. Misuse of this tool against systems without explicit permission may be illegal and could cause service disruptions. Always obtain proper authorization before testing. See our [Legal Notice](docs/legal.md) for complete legal information.
 
 ## License
 
