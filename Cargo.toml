@@ -1,6 +1,6 @@
 [package]
 name = "gliror"
-version = "1.0.1"
+version = "1.0.2"
 edition = "2021"
 authors = ["KillDarkness"]
 description = "Advanced Rust-based DoS/Load Testing Tool with Concurrent Requests"
@@ -21,3 +21,4 @@ indicatif = "0.17"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio-stream = { version = "0.1", features = ["net"] }
+chrono = { version = "0.4", features = ["serde"] }
