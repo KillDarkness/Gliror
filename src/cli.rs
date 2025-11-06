@@ -61,7 +61,7 @@ pub struct Args {
     #[clap(short = 'r', long, value_parser)]
     pub ramp_up: Option<u64>,
     
-    /// Scheduled start time (format: "YYYY-MM-DD HH:MM:SS" or delay in seconds)
+    /// Scheduled start time in UTC (format: "YYYY-MM-DD HH:MM:SS" in UTC timezone or delay in seconds)
     #[clap(short = 's', long, value_parser)]
     pub schedule: Option<String>,
 }
