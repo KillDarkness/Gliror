@@ -9,7 +9,7 @@ use cli::Args;
 use colored::Colorize;
 use display::print_cyan_ascii;
 use http::perform_attack;
-use stats::parse_headers;
+use cli::parse_headers;
 
 #[tokio::main]
 async fn main() {
