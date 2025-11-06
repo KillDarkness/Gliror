@@ -8,6 +8,16 @@ This guide covers how to install and set up GLIROR on various platforms.
 - Cargo (comes with Rust)
 - OpenSSL development libraries (for HTTPS support)
 
+## Installing via Cargo (Recommended)
+
+The easiest way to install GLIROR is using Cargo:
+
+```bash
+cargo install gliror
+```
+
+This will download, compile, and install GLIROR to your Cargo bin directory (usually `~/.cargo/bin`), which should be in your PATH.
+
 ## Installing from Source
 
 ### 1. Clone the Repository
@@ -31,6 +41,12 @@ cargo run --release -- [options]
 
 # Or use the compiled binary
 ./target/release/gliror [options]
+```
+
+### 4. Install System-Wide from Source
+
+```bash
+cargo install --path .
 ```
 
 ## Installing Rust
@@ -84,7 +100,7 @@ source ~/.bashrc
 Test your installation:
 
 ```bash
-cargo run --release -- --version
+gliror --version
 ```
 
 You should see output similar to: `GLIROR 1.0.1`
