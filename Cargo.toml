@@ -2,7 +2,7 @@
 name = "gliror"
 version = "1.0.1"
 edition = "2021"
-authors = ["Qwen Developer", "KillDarkness"]
+authors = ["KillDarkness"]
 description = "Advanced Rust-based DoS/Load Testing Tool with Concurrent Requests"
 license = "MIT"
 repository = "https://github.com/KillDarkness/Gliror"
