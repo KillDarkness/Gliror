@@ -2,6 +2,15 @@
 name = "gliror"
 version = "1.0.1"
 edition = "2021"
+authors = ["Qwen Developer"]
+description = "Advanced Rust-based DoS/Load Testing Tool with Concurrent Requests"
+license = "MIT"
+repository = "https://github.com/KillDarkness/Gliror"
+homepage = "https://github.com/KillDarkness/Gliror"
+documentation = "https://github.com/KillDarkness/Gliror/blob/main/docs/index.md"
+readme = "README.md"
+keywords = ["dos", "load-testing", "networking", "security", "tool"]
+categories = ["command-line-utilities", "network-programming", "development-tools"]
 
 [dependencies]
 tokio = { version = "1.0", features = ["full"] }
