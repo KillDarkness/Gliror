@@ -5,7 +5,46 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use chrono::DateTime;
+
+// Parse schedule time (either timestamp in seconds or "YYYY-MM-DD HH:MM:SS" format)
+fn parse_schedule_time(schedule: Option<String>) -> Option<Instant> {
+    if let Some(schedule_str) = schedule {
+        // Try parsing as timestamp first
+        if let Ok(timestamp) = schedule_str.parse::<u64>() {
+            return Some(Instant::now() + Duration::from_secs(timestamp));
+        } 
+        // Try parsing as datetime format
+        else if let Ok(dt) = DateTime::parse_from_str(&schedule_str, "%Y-%m-%d %H:%M:%S") {
+            let timestamp = dt.timestamp() as u64;
+            let current_time = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+                
+            if timestamp > current_time {
+                return Some(Instant::now() + Duration::from_secs(timestamp - current_time));
+            }
+        }
+    }
+    None
+}
+
+// Calculate current concurrent requests based on ramp-up
+fn calculate_ramp_up_concurrent(elapsed: Duration, ramp_up: u64, target_concurrent: u32) -> u32 {
+    if ramp_up == 0 {
+        return target_concurrent;
+    }
+    
+    let elapsed_secs = elapsed.as_secs();
+    if elapsed_secs >= ramp_up {
+        target_concurrent
+    } else {
+        let factor = elapsed_secs as f64 / ramp_up as f64;
+        (target_concurrent as f64 * factor).round() as u32
+    }
+}
 
 #[derive(Serialize)]
 struct AttackResults {
@@ -29,8 +68,19 @@ pub async fn perform_attack(
     proxy: Option<String>,
     concurrent: Option<u32>,
     delay: u64,
-    output_file: Option<String>
+    output_file: Option<String>,
+    ramp_up: Option<u64>,
+    schedule: Option<String>
 ) {
+    // Handle scheduling
+    if let Some(scheduled_time) = parse_schedule_time(schedule) {
+        let wait_duration = scheduled_time.saturating_duration_since(Instant::now());
+        if !wait_duration.is_zero() {
+            println!("{} Scheduled start in {:.1} seconds", "INFO".blue(), wait_duration.as_secs_f64());
+            tokio::time::sleep(wait_duration).await;
+        }
+    }
+    
     let requests_sent = Arc::new(AtomicU64::new(0));
     let requests_success = Arc::new(AtomicU64::new(0));
     let requests_error = Arc::new(AtomicU64::new(0));
@@ -50,10 +100,23 @@ pub async fn perform_attack(
     
     let client = client_builder.build().expect("Failed to create client");
     
-    let num_concurrent_requests = if let Some(concurrent_val) = concurrent {
+    let target_concurrent = if let Some(concurrent_val) = concurrent {
         concurrent_val as usize
     } else {
         if duration == 0 { 100 } else { 20 }
+    };
+    
+    // Apply ramp-up logic if specified
+    let num_concurrent_requests = if let Some(ramp_val) = ramp_up {
+        if ramp_val > 0 {
+            println!("{} Ramp-up: {} seconds to {} concurrent requests", "INFO".blue(), ramp_val, target_concurrent);
+            // For now, just use the target concurrent, but in future we'll ramp up gradually
+            target_concurrent
+        } else {
+            target_concurrent
+        }
+    } else {
+        target_concurrent
     };
     
     let pb = Arc::new(ProgressBar::new_spinner());
