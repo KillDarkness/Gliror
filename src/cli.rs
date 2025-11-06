@@ -13,7 +13,7 @@ pub fn parse_headers(header_args: &[String]) -> HashMap<String, String> {
     headers
 }
 
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 #[clap(
     name = "GLIROR",
     about = "High-performance DoS tool with colorful status display",
@@ -64,4 +64,24 @@ pub struct Args {
     /// Scheduled start time in UTC (format: "YYYY-MM-DD HH:MM:SS" in UTC timezone or delay in seconds)
     #[clap(short = 's', long, value_parser)]
     pub schedule: Option<String>,
+    
+    /// Enable cluster mode
+    #[clap(long)]
+    pub cluster_mode: bool,
+    
+    /// Worker ID for cluster mode
+    #[clap(long, value_parser)]
+    pub worker_id: Option<String>,
+    
+    /// Coordinator address for cluster mode
+    #[clap(long, value_parser)]
+    pub coordinator_addr: Option<String>,
+    
+    /// Number of cluster workers
+    #[clap(long, value_parser)]
+    pub total_workers: Option<usize>,
+    
+    /// Cluster worker role ('master' or 'worker')
+    #[clap(long, value_parser)]
+    pub role: Option<String>,
 }
