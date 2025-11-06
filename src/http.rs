@@ -6,6 +6,21 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use serde::Serialize;
+
+#[derive(Serialize)]
+struct AttackResults {
+    total_requests: u64,
+    successful_requests: u64,
+    failed_requests: u64,
+    success_rate: f64,
+    average_rps: f64,
+    average_response_time: f64,
+    duration_seconds: f64,
+    target_url: String,
+    method: String,
+}
+
 pub async fn perform_attack(
     url: String, 
     duration: u64, 
@@ -14,7 +29,8 @@ pub async fn perform_attack(
     data: Option<String>,
     proxy: Option<String>,
     concurrent: Option<u32>,
-    delay: u64
+    delay: u64,
+    output_file: Option<String>
 ) {
     // Shared counters for statistics
     let requests_sent = Arc::new(AtomicU64::new(0));
@@ -237,8 +253,13 @@ pub async fn perform_attack(
     println!("Successful requests: {}", total_success);
     println!("Failed requests: {}", total_error);
     
+    let success_rate = if total_sent > 0 {
+        (total_success as f64 / total_sent as f64) * 100.0
+    } else {
+        0.0
+    };
+    
     if total_sent > 0 {
-        let success_rate = (total_success as f64 / total_sent as f64) * 100.0;
         println!("Success rate: {:.2}%", success_rate);
         
         // Calculate requests per second
@@ -259,5 +280,30 @@ pub async fn perform_attack(
     
     if avg_time > 0.0 {
         println!("Average response time: {:.2}ms", avg_time);
+    }
+    
+    // If output file is specified, write results to JSON
+    if let Some(output_path) = output_file {
+        let results = AttackResults {
+            total_requests: total_sent,
+            successful_requests: total_success,
+            failed_requests: total_error,
+            success_rate,
+            average_rps: if total_sent > 0 { total_sent as f64 / start_time.elapsed().as_secs_f64() } else { 0.0 },
+            average_response_time: avg_time,
+            duration_seconds: start_time.elapsed().as_secs_f64(),
+            target_url: url.clone(),
+            method: method.clone(),
+        };
+        
+        match serde_json::to_string_pretty(&results) {
+            Ok(json) => {
+                match std::fs::write(&output_path, json) {
+                    Ok(_) => println!("\n{} Results saved to: {}", "INFO".blue(), output_path),
+                    Err(e) => eprintln!("\n{} Failed to save results to {}: {}", "ERROR".red(), output_path, e),
+                }
+            }
+            Err(e) => eprintln!("\n{} Failed to serialize results: {}", "ERROR".red(), e),
+        }
     }
 }
