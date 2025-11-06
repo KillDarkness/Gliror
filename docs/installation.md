@@ -103,7 +103,7 @@ Test your installation:
 gliror --version
 ```
 
-You should see output similar to: `GLIROR 1.0.1`
+You should see output similar to: `GLIROR 1.0.2`
 
 ## Building as a System Binary
 
