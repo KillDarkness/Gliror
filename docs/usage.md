@@ -27,6 +27,7 @@ gliror [OPTIONS]
 ### Information
 - `-h, --help`: Print help information
 - `-V, --version`: Print version information
+- `-o, --output <OUTPUT>`: Output results to a file (JSON format)
 
 ## Usage Examples
 
