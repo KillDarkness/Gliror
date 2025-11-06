@@ -1,7 +1,6 @@
 use clap::Parser;
 use std::collections::HashMap;
 
-// Parse custom headers from command line arguments
 pub fn parse_headers(header_args: &[String]) -> HashMap<String, String> {
     let mut headers = HashMap::new();
     
