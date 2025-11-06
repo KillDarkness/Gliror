@@ -4,3 +4,4 @@ Cargo.lock
 *.tmp
 *.temp
 .DS_Store
+release_description*.md
