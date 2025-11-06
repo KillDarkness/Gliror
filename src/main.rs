@@ -10,9 +10,9 @@ use std::time::{Duration, Instant};
 
 #[derive(Parser)]
 #[clap(
-    name = "GLIOR",
+    name = "GLIROR",
     about = "High-performance DoS tool with colorful status display",
-    author = "GLIOR Team",
+    author = "GLIROR Team",
     version = "2.0.0"
 )]
 struct Args {
@@ -56,7 +56,7 @@ async fn main() {
     
     // Show version without ASCII art if version flag is present
     if std::env::args().any(|arg| arg == "--version" || arg == "-V") {
-        println!("GLIOR {}", env!("CARGO_PKG_VERSION"));
+        println!("GLIROR {}", env!("CARGO_PKG_VERSION"));
         return;
     }
     

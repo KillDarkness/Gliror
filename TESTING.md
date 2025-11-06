@@ -1,4 +1,4 @@
-# GLIOR Testing Examples
+# GLIROR Testing Examples
 
 ## Local Testing Setup
 
@@ -28,10 +28,10 @@ npm install
 npm start
 ```
 
-## Running GLIOR Against Local Server
+## Running GLIROR Against Local Server
 
 1. Start your local server first
-2. Run GLIOR against it:
+2. Run GLIROR against it:
 
 ```bash
 # Basic GET request test
@@ -87,7 +87,7 @@ STATUS: Sent: 2500, Success: 2480, Errors: 20, RPS: 250.0, Avg: 15.2ms
 
 ## Monitoring
 
-GLIOR will alert you in the following situations:
+GLIROR will alert you in the following situations:
 
 - If error rate exceeds 10%
 - If individual requests take more than 2 seconds

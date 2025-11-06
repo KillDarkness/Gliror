@@ -1,4 +1,4 @@
-# GLIOR
+# GLIROR
 
 A high-performance DoS (Denial of Service) tool written in Rust with colorful status display, error detection, and performance monitoring.
 
@@ -24,7 +24,7 @@ A high-performance DoS (Denial of Service) tool written in Rust with colorful st
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd grior
+cd gliror
 
 # Build the project
 cargo build --release
@@ -38,7 +38,7 @@ cargo run --release -- --url <target-url> --time <duration-in-seconds>
 ### Command Line Options
 
 ```bash
-Usage: grior [OPTIONS]
+Usage: gliror [OPTIONS]
 
 Options:
   -u, --url <URL>                Target URL to attack
@@ -93,7 +93,7 @@ Options:
 
 ## Statistics Displayed
 
-During the attack, GLIOR shows:
+During the attack, GLIROR shows:
 
 - Total requests sent
 - Successful requests
