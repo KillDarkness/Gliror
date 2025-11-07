@@ -61,6 +61,9 @@ pub struct WorkerProgress {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AttackCommand {
     pub url: String,
+    pub host: Option<String>,
+    pub target_port: Option<u16>,
+    pub attack_type: String,
     pub time: u64,
     pub method: String,
     pub header: Vec<String>,
