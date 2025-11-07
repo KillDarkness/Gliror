@@ -7,6 +7,10 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write  # Necessário para fazer upload de assets
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -15,33 +19,52 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
 
     - name: Build release
-      run: cargo build --release
+      run: cargo build --release --verbose
 
     - name: Get version from Cargo.toml
       id: version
       run: |
         VERSION=$(grep -m 1 "^version" Cargo.toml | cut -d '"' -f 2)
         echo "VERSION=v$VERSION" >> $GITHUB_ENV
+        echo "Version detected: v$VERSION"
 
-    - name: Find release binary
+    - name: Find and prepare release binary
       id: binary
       run: |
-        BINARY_PATH=$(find target/release -type f -executable | head -n 1)
+        # Encontrar o binário principal (gliror)
+        BINARY_PATH=$(find target/release -maxdepth 1 -type f -name "gliror" -executable | head -n 1)
+        
+        if [ -z "$BINARY_PATH" ]; then
+          echo "ERROR: Binary not found!"
+          echo "Contents of target/release:"
+          ls -la target/release/
+          exit 1
+        fi
+        
+        echo "Binary found at: $BINARY_PATH"
         BINARY_NAME=$(basename "$BINARY_PATH")
         echo "BINARY_PATH=$BINARY_PATH" >> $GITHUB_ENV
         echo "BINARY_NAME=$BINARY_NAME" >> $GITHUB_ENV
+        
+        # Informações sobre o binário
+        file "$BINARY_PATH"
+        ls -lh "$BINARY_PATH"
 
     - name: Rename binary
       run: |
-        mv "${{ env.BINARY_PATH }}" "gliror_amd_${{ env.VERSION }}"
-        echo "RENAMED_BINARY=gliror_amd_${{ env.VERSION }}" >> $GITHUB_ENV
+        RENAMED_BINARY="gliror_amd64_${{ env.VERSION }}"
+        echo "Renaming ${{ env.BINARY_PATH }} to $RENAMED_BINARY"
+        cp "${{ env.BINARY_PATH }}" "$RENAMED_BINARY"
+        chmod +x "$RENAMED_BINARY"
+        echo "RENAMED_BINARY=$RENAMED_BINARY" >> $GITHUB_ENV
+        
+        # Verificar o arquivo final
+        ls -lh "$RENAMED_BINARY"
+        file "$RENAMED_BINARY"
 
     - name: Upload release asset
-      uses: actions/upload-release-asset@v1
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ${{ env.RENAMED_BINARY }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ./gliror_amd_${{ env.VERSION }}
-        asset_name: gliror_amd_${{ env.VERSION }}
-        asset_content_type: application/octet-stream
