@@ -33,7 +33,7 @@ pub struct Args {
     #[clap(short = 'T', long, value_parser)]
     pub target_port: Option<u16>,
     
-    /// Attack type (http or udp)
+    /// Attack type (http, udp, or slowloris)
     #[clap(short = 'A', long, value_parser, default_value = "http")]
     pub attack_type: String,
     
