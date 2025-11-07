@@ -1,8 +1,12 @@
+pub mod server;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
+use std::time::{Duration, Instant};
+use colored::Colorize;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ClusterConfig {
@@ -25,11 +29,14 @@ impl ClusterConfig {
     }
 }
 
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WorkerState {
     pub id: String,
     pub status: WorkerStatus,
     pub progress: WorkerProgress,
+    #[serde(skip)]
+    pub last_seen: Option<Instant>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -51,12 +58,30 @@ pub struct WorkerProgress {
     pub current_rps: f64,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AttackCommand {
+    pub url: String,
+    pub time: u64,
+    pub method: String,
+    pub header: Vec<String>,
+    pub data: Option<String>,
+    pub proxy: Option<String>,
+    pub concurrent: Option<u32>,
+    pub delay: u64,
+    pub output: Option<String>,
+    pub ramp_up: Option<u64>,
+    pub schedule: Option<String>,
+}
+
+#[allow(dead_code)]
 pub struct ClusterCoordinator {
     pub config: ClusterConfig,
     pub workers: Arc<RwLock<HashMap<String, WorkerState>>>,
     pub master_progress: Arc<RwLock<WorkerProgress>>,
+    pub attack_command: Arc<RwLock<Option<AttackCommand>>>,
 }
 
+#[allow(dead_code)]
 impl ClusterCoordinator {
     pub fn new(config: ClusterConfig) -> Self {
         ClusterCoordinator {
@@ -69,6 +94,7 @@ impl ClusterCoordinator {
                 avg_response_time: 0.0,
                 current_rps: 0.0,
             })),
+            attack_command: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -86,6 +112,7 @@ impl ClusterCoordinator {
                     avg_response_time: 0.0,
                     current_rps: 0.0,
                 },
+                last_seen: None,
             },
         );
         true
@@ -112,7 +139,22 @@ impl ClusterCoordinator {
     }
 
     pub async fn get_total_progress(&self) -> WorkerProgress {
-        let workers = self.workers.read().await;
+        let mut workers = self.workers.write().await; // Use write lock to remove disconnected workers
+        let mut disconnected_workers = Vec::new();
+        let now = Instant::now();
+        let timeout = Duration::from_secs(10); // Workers not seen for 10 seconds are considered disconnected
+
+        for (worker_id, worker) in workers.iter() {
+            if now.duration_since(worker.last_seen.unwrap()) > timeout {
+                disconnected_workers.push(worker_id.clone());
+            }
+        }
+
+        for worker_id in disconnected_workers {
+            workers.remove(&worker_id);
+            println!("{} Worker {} disconnected.", "INFO".blue(), worker_id);
+        }
+
         let mut total = WorkerProgress {
             requests_sent: 0,
             requests_success: 0,
