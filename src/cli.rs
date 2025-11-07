@@ -18,22 +18,34 @@ pub fn parse_headers(header_args: &[String]) -> HashMap<String, String> {
     name = "GLIROR",
     about = "High-performance DoS tool with colorful status display",
     author = "GLIROR Team",
-    version = "1.0.3"
+    version = "1.0.4"
 )]
 pub struct Args {
-    /// Target URL to attack
+    /// Target URL to attack (for HTTP attacks) or host:port for UDP attacks
     #[clap(short, long, value_parser)]
     pub url: Option<String>,
+    
+    /// Target host for UDP attacks (alternative to URL)
+    #[clap(short = 'S', long, value_parser)]
+    pub host: Option<String>,
+    
+    /// Target port for UDP attacks
+    #[clap(short = 'T', long, value_parser)]
+    pub target_port: Option<u16>,
+    
+    /// Attack type (http or udp)
+    #[clap(short = 'A', long, value_parser, default_value = "http")]
+    pub attack_type: String,
     
     /// Duration of the attack in seconds (0 for unlimited)
     #[clap(short, long, value_parser, default_value_t = 30)]
     pub time: u64,
     
-    /// HTTP method to use (GET, POST, PUT, DELETE)
+    /// HTTP method to use (GET, POST, PUT, DELETE) - ignored for UDP
     #[clap(short, long, value_parser, default_value = "GET")]
     pub method: String,
     
-    /// Custom headers (format: "Header-Name: value")
+    /// Custom headers (format: "Header-Name: value") - ignored for UDP
     #[clap(short = 'H', long, value_parser)]
     pub header: Vec<String>,
     
@@ -41,7 +53,7 @@ pub struct Args {
     #[clap(short = 'D', long, value_parser)]
     pub data: Option<String>,
     
-    /// Proxy to use for requests (format: "http://proxy:port")
+    /// Proxy to use for requests (format: "http://proxy:port") - ignored for UDP
     #[clap(short = 'x', long, value_parser)]
     pub proxy: Option<String>,
     
@@ -81,11 +93,11 @@ pub struct Args {
     #[clap(long, value_parser)]
     pub total_workers: Option<usize>,
     
-    /// Cluster worker role ('master' or 'worker')
-    #[clap(long, value_parser)]
-    pub role: Option<String>,
-    
     /// Port for the master coordinator (default: 8080)
     #[clap(short = 'p', long, value_parser)]
     pub port: Option<u16>,
+
+    /// Cluster worker role ('master' or 'worker')
+    #[clap(long, value_parser)]
+    pub role: Option<String>,
 }
