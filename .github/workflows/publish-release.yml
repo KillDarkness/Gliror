@@ -5,34 +5,63 @@ on:
     types: [created]
 
 permissions:
-  contents: write  # garante permissão global para uploads e modificações
+  contents: write
 
 jobs:
   publish:
+    name: Build for ${{ matrix.target }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: linux
+            arch: amd64
+            bin: gliror
+          - target: aarch64-unknown-linux-musl
+            os: linux
+            arch: arm64
+            bin: gliror
+          - target: armv7-unknown-linux-musleabihf
+            os: linux
+            arch: armv7
+            bin: gliror
+          - target: x86_64-unknown-linux-gnu
+            os: linux
+            arch: amd64
+            bin: gliror
+          - target: x86_64-apple-darwin
+            os: macos
+            arch: amd64
+            bin: gliror
+          - target: aarch64-apple-darwin
+            os: macos
+            arch: arm64
+            bin: gliror
+          - target: x86_64-pc-windows-msvc
+            os: windows
+            arch: amd64
+            bin: gliror.exe
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Cache cargo registry
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-
-
     - name: Set up Rust
       uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.target }}
+
+    - name: Install musl-tools (for musl targets)
+      if: contains(matrix.target, 'musl')
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y musl-tools
 
     - name: Build release
-      run: cargo build --release --verbose
+      run: |
+        rustup target add ${{ matrix.target }}
+        cargo build --target ${{ matrix.target }} --release --verbose
 
     - name: Get version from Cargo.toml
       id: version
@@ -41,43 +70,32 @@ jobs:
         echo "VERSION=v$VERSION" >> $GITHUB_ENV
         echo "Version detected: v$VERSION"
 
-    - name: Find and prepare release binary
-      id: binary
+    - name: Prepare release asset
+      id: asset
       run: |
-        # Encontrar o binário principal (gliror)
-        BINARY_PATH=$(find target/release -maxdepth 1 -type f -name "gliror" -executable | head -n 1)
+        BINARY_NAME="${{ matrix.bin }}"
+        BINARY_PATH="target/${{ matrix.target }}/release/$BINARY_NAME"
         
-        if [ -z "$BINARY_PATH" ]; then
-          echo "ERROR: Binary not found!"
-          echo "Contents of target/release:"
-          ls -la target/release/
+        if [ ! -f "$BINARY_PATH" ]; then
+          echo "ERROR: Binary not found at $BINARY_PATH"
+          echo "Contents of target directory:"
+          find target -name "*" -type f -executable 2>/dev/null || true
           exit 1
         fi
         
-        echo "Binary found at: $BINARY_PATH"
-        BINARY_NAME=$(basename "$BINARY_PATH")
-        echo "BINARY_PATH=$BINARY_PATH" >> $GITHUB_ENV
-        echo "BINARY_NAME=$BINARY_NAME" >> $GITHUB_ENV
+        ASSET_NAME="gliror_${{ matrix.os }}_${{ matrix.arch }}_${{ env.VERSION }}"
+        echo "Renaming $BINARY_PATH to $ASSET_NAME"
+        cp "$BINARY_PATH" "$ASSET_NAME"
+        chmod +x "$ASSET_NAME"
+        echo "ASSET_NAME=$ASSET_NAME" >> $GITHUB_ENV
         
-        # Informações sobre o binário
-        file "$BINARY_PATH"
-        ls -lh "$BINARY_PATH"
-
-    - name: Rename binary
-      run: |
-        RENAMED_BINARY="gliror_amd64_${{ env.VERSION }}"
-        echo "Renaming ${{ env.BINARY_PATH }} to $RENAMED_BINARY"
-        cp "${{ env.BINARY_PATH }}" "$RENAMED_BINARY"
-        chmod +x "$RENAMED_BINARY"
-        echo "RENAMED_BINARY=$RENAMED_BINARY" >> $GITHUB_ENV
-        
-        # Verificar o arquivo final
-        ls -lh "$RENAMED_BINARY"
-        file "$RENAMED_BINARY"
+        # Show binary info
+        ls -lh "$ASSET_NAME"
+        file "$ASSET_NAME" 2>/dev/null || echo "file command not available"
 
     - name: Upload release asset
       uses: softprops/action-gh-release@v1
       with:
-        files: ${{ env.RENAMED_BINARY }}
+        files: ${{ env.ASSET_NAME }}
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_UPLOAD_TOKEN }}
