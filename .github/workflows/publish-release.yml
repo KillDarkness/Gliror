@@ -4,16 +4,29 @@ on:
   release:
     types: [created]
 
+permissions:
+  contents: write  # garante permissão global para uploads e modificações
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    
-    permissions:
-      contents: write  # Necessário para fazer upload de assets
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Cache cargo registry
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
 
     - name: Set up Rust
       uses: dtolnay/rust-toolchain@stable
@@ -67,4 +80,4 @@ jobs:
       with:
         files: ${{ env.RENAMED_BINARY }}
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.RELEASE_UPLOAD_TOKEN }}
