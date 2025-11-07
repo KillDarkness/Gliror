@@ -36,7 +36,8 @@ Comprehensive documentation is available in the [docs](docs/) directory:
   - **Fast Mode**: 100 concurrent requests for maximum load (when time=0)
   - **Medium Mode**: 20 concurrent requests for sustained attack
 - **UDP Flood Attack**: New UDP-based flooding capability for DDoS testing
-- **Attack Type Selection**: Choose between HTTP or UDP attack types
+- **Slowloris Attack**: Added Slowloris attack to hold connections open and exhaust server resources
+- **Attack Type Selection**: Choose between HTTP, UDP, or Slowloris attack types
 
 ## Important Note
 
