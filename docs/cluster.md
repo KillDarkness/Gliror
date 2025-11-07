@@ -114,6 +114,10 @@ cargo run -- --cluster-mode --role worker --coordinator-addr "http://192.168.1.1
 ### Dynamic Configuration
 
 - If URL or duration are not specified in the command, the master will prompt for them
+- If only URL is provided, it will prompt for duration
+- If only duration is provided, it will prompt for URL  
+- If neither is provided, it will prompt for both
+- If both are provided in the command, no prompting occurs
 - Supports all standard GLIROR attack parameters
 - Automatic parameter distribution to workers
 
