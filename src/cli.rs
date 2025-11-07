@@ -18,7 +18,7 @@ pub fn parse_headers(header_args: &[String]) -> HashMap<String, String> {
     name = "GLIROR",
     about = "High-performance DoS tool with colorful status display",
     author = "GLIROR Team",
-    version = "1.0.4"
+    version = "1.0.5"
 )]
 pub struct Args {
     /// Target URL to attack (for HTTP attacks) or host:port for UDP attacks
