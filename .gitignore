@@ -5,3 +5,4 @@ Cargo.lock
 *.temp
 .DS_Store
 release_description*.md
+feature_suggestions.md
