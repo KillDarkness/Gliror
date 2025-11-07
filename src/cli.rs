@@ -84,4 +84,8 @@ pub struct Args {
     /// Cluster worker role ('master' or 'worker')
     #[clap(long, value_parser)]
     pub role: Option<String>,
+    
+    /// Port for the master coordinator (default: 8080)
+    #[clap(short = 'p', long, value_parser)]
+    pub port: Option<u16>,
 }
