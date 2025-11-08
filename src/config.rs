@@ -11,6 +11,7 @@ pub struct Config {
     pub time: Option<u64>,
     pub method: Option<String>,
     pub headers: Option<HashMap<String, String>>,
+    pub random_ua: Option<bool>,
     pub data: Option<String>,
     pub proxy: Option<String>,
     pub concurrent: Option<u32>,
