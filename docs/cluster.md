@@ -57,7 +57,7 @@ All standard GLIROR attack options are supported on the master node:
 - `-x, --proxy <proxy>`: Proxy to use for requests (format: "http://proxy:port")
 - `-c, --concurrent <number>`: Number of concurrent requests
 - `-w, --delay <milliseconds>`: Delay between requests in milliseconds
-- `-o, --output <file>`: Output results to a file (JSON format)
+- `-o, --output <file>`: Output results to a file (supports JSON, XML, YAML, CSV, TOML formats based on file extension)
 - `-r, --ramp-up <seconds>`: Ramp-up time to gradually increase requests
 - `-s, --schedule <time>`: Scheduled start time
 

@@ -22,7 +22,7 @@ GLIROR is a high-performance Denial of Service and load testing tool designed fo
 - **Advanced HTTP Control**: Customize HTTP method, headers, and request payloads.
 - **Network Flexibility**: Route traffic through HTTP/S proxies.
 - **Rate & Duration Control**: Fine-tune concurrency, delay, and attack duration.
-- **JSON Output**: Save comprehensive test results to a JSON file for analysis.
+- **Multi-format Output**: Save comprehensive test results to files in JSON, XML, YAML, CSV, or TOML formats for analysis.
 
 ## Installation
 

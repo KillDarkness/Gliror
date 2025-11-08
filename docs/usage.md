@@ -27,7 +27,7 @@ gliror [OPTIONS]
 ### Information
 - `-h, --help`: Print help information
 - `-V, --version`: Print version information
-- `-o, --output <OUTPUT>`: Output results to a file (JSON format)
+- `-o, --output <OUTPUT>`: Output results to a file (supports JSON, XML, YAML, CSV, TOML formats based on file extension)
 
 ### Configuration File
 - `--config <PATH>`: Path to a YAML configuration file.

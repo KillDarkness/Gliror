@@ -162,7 +162,7 @@ A: Yes, GLIROR supports both HTTP and HTTPS through the reqwest library.
 A: GLIROR uses the reqwest library which handles connection pooling automatically for better performance.
 
 ### Q: Can I get structured output (JSON, etc.)?
-A: Currently GLIROR provides text-based output. You can redirect and parse the output as needed in your scripts.
+A: Yes! GLIROR supports multiple structured output formats including JSON, XML, YAML, CSV, and TOML. Use the `--output` option with the appropriate file extension to save test results in your preferred format.
 
 ## Technical Details
 

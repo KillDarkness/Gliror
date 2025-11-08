@@ -135,18 +135,49 @@ GLIROR automatically monitors for:
 
 ## Results Output
 
-GLIROR can save test results to structured JSON files using the `--output` option:
+GLIROR can save test results to structured files in multiple formats using the `--output` option. The format is automatically determined based on the file extension:
 
 ```bash
 # Save results to a JSON file
 gliror -u https://example.com -c 50 -t 120 -o results.json
 
-# The output file contains structured data including:
-# - Total requests sent
-# - Successful and failed requests
-# - Success rate percentage
-# - Average requests per second
-# - Average response time
-# - Duration of the test
-# - Target URL and HTTP method
+# Save results to an XML file
+gliror -u https://example.com -c 50 -t 120 -o results.xml
+
+# Save results to a YAML file
+gliror -u https://example.com -c 50 -t 120 -o results.yaml
+
+# Save results to a CSV file (simplified format)
+gliror -u https://example.com -c 50 -t 120 -o results.csv
+
+# Save results to a TOML file
+gliror -u https://example.com -c 50 -t 120 -o results.toml
+```
+
+The output files contain comprehensive data including:
+
+### JSON, XML, YAML, and TOML formats:
+- Total requests, successful requests, failed requests
+- Success rate percentage
+- Average requests per second (RPS)
+- Min, max, average, median response times
+- 95th and 99th percentile response times
+- Test duration in seconds
+- Start and end timestamps (ISO 8601 format)
+- Target URL and HTTP method
+- Request headers used
+- Data size in bytes
+- Concurrent requests setting
+- Delay between requests
+- Total bytes transferred
+- Requests-per-second timeline data
+
+### CSV format (simplified):
+- Total requests, successful requests, failed requests
+- Success rate percentage
+- Average requests per second (RPS)
+- Min, max, average, median response times
+- 95th and 99th percentile response times
+- Test duration in seconds
+- Target URL and HTTP method
 ```
