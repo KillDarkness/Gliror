@@ -18,7 +18,7 @@ pub fn parse_headers(header_args: &[String]) -> HashMap<String, String> {
     name = "GLIROR",
     about = "High-performance DoS tool with colorful status display",
     author = "GLIROR Team",
-    version = "1.0.7"
+    version = "1.0.8"
 )]
 pub struct Args {
     /// Path to a YAML configuration file
