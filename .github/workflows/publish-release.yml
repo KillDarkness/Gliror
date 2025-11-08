@@ -59,6 +59,39 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Set up Rust (for non-cross builds)
+      if: matrix.platform.use_cross == false
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.platform.target }}
+
+    - name: Cache cargo registry (non-cross)
+      if: matrix.platform.use_cross == false
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-registry-
+
+    - name: Cache cargo index (non-cross)
+      if: matrix.platform.use_cross == false
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-git-
+
+    - name: Cache target directory (non-cross)
+      if: matrix.platform.use_cross == false
+      uses: actions/cache@v4
+      with:
+        path: target
+        key: ${{ runner.os }}-${{ matrix.platform.target }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ matrix.platform.target }}-cargo-target-
+
     - name: Get version from Cargo.toml
       id: version
       shell: bash
@@ -67,7 +100,14 @@ jobs:
         echo "VERSION=$VERSION" >> $GITHUB_ENV
         echo "Version: $VERSION"
 
-    - name: Build binary using actions-rust-cross
+    - name: Build binary using cargo (non-cross)
+      if: matrix.platform.use_cross == false
+      shell: bash
+      run: |
+        cargo build --release --target ${{ matrix.platform.target }}
+
+    - name: Build binary using actions-rust-cross (ARM Linux only)
+      if: matrix.platform.use_cross == true
       uses: houseabsolute/actions-rust-cross@v0
       with:
         command: build
