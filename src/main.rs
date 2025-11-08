@@ -16,6 +16,7 @@ use udp::perform_udp_attack;
 use cli::parse_headers;
 use cluster::{ClusterCoordinator, ClusterConfig, WorkerState, WorkerStatus, WorkerProgress};
 use gliror::config::Config;
+use gliror::http::user_agents;
 use std::fs;
 
 #[tokio::main]
@@ -71,6 +72,11 @@ async fn main() {
                         args.total_workers = args.total_workers.or(config.total_workers);
                         args.port = args.port.or(config.port);
                         args.role = args.role.or(config.role);
+                        if !args.random_ua { // If CLI did NOT set --random-ua
+                            if let Some(config_random_ua) = config.random_ua {
+                                args.random_ua = config_random_ua;
+                            }
+                        }
                     }
                     Err(e) => {
                         eprintln!("{} Failed to parse config file: {}", "ERROR".red(), e);
@@ -234,7 +240,7 @@ async fn handle_standalone_attack(args: Args) {
             println!("{} Proxy: {}", "INFO".blue(), proxy);
         }
         
-        perform_attack(target_url, duration, args.method, headers, args.data, args.proxy, args.concurrent, args.delay, args.output, args.ramp_up, args.schedule).await;
+        perform_attack(target_url, duration, args.method, headers, args.data, args.proxy, args.concurrent, args.delay, args.output, args.ramp_up, args.schedule, args.random_ua).await;
     }
 }
 
@@ -318,6 +324,7 @@ async fn run_master_node(args: Args) {
         output: args.output.clone(),
         ramp_up: args.ramp_up,
         schedule: args.schedule.clone(),
+        random_ua: args.random_ua,
     };
 
     // Store the attack command for workers to pick up
@@ -654,6 +661,12 @@ async fn run_worker_node(args: Args) {
                                             "HEAD" => client_clone.head(&url_clone),
                                             _ => client_clone.get(&url_clone),
                                         };
+
+                                        // Add random User-Agent if enabled and not already set
+                                        if task.random_ua && !headers.keys().any(|k| k.eq_ignore_ascii_case("user-agent")) {
+                                            request_builder = request_builder.header("User-Agent", user_agents::get_random_user_agent());
+                                        }
+
                                         for (key, value) in &headers {
                                             request_builder = request_builder.header(key, value);
                                         }
