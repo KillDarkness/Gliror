@@ -74,6 +74,7 @@ pub struct AttackCommand {
     pub output: Option<String>,
     pub ramp_up: Option<u64>,
     pub schedule: Option<String>,
+    pub random_ua: bool,
 }
 
 #[allow(dead_code)]
