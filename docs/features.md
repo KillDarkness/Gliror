@@ -33,6 +33,17 @@ gliror -u https://example.com -H "User-Agent: CustomBot/1.0" -H "Accept: applica
 - `Accept`: Specify acceptable response format
 - `X-Forwarded-For`: Spoof IP address (if server respects it)
 
+## User-Agent Randomization
+
+To make HTTP traffic appear more diverse and harder to filter, GLIROR can randomize the User-Agent header for each request.
+
+- `--random-ua`: Enable User-Agent randomization. If a custom `User-Agent` is provided via `-H`, it will take precedence.
+
+### Example
+```bash
+gliror -u https://example.com --time 60 --random-ua
+```
+
 ## Request Payloads
 
 Send data in requests using the `-D` or `--data` option:
