@@ -47,7 +47,7 @@ jobs:
           - name: Windows x86_64
             os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: gliror_windows_amd64.exe
+            artifact_name: gliror_windows_amd64
     
     steps:
     - name: Checkout code
@@ -58,17 +58,17 @@ jobs:
       with:
         targets: ${{ matrix.platform.target }}
 
-    - name: Install cross-compilation tools (Linux ARM)
+    - name: Install cross-compilation tools (Linux ARM64)
       if: matrix.platform.target == 'aarch64-unknown-linux-gnu'
       run: |
-        sudo apt-get update
-        sudo apt-get install -y gcc-aarch64-linux-gnu
+        cargo install cross --git https://github.com/cross-rs/cross
+        echo "USE_CROSS=true" >> $GITHUB_ENV
 
     - name: Install cross-compilation tools (Linux ARMv7)
       if: matrix.platform.target == 'armv7-unknown-linux-gnueabihf'
       run: |
-        sudo apt-get update
-        sudo apt-get install -y gcc-arm-linux-gnueabihf
+        cargo install cross --git https://github.com/cross-rs/cross
+        echo "USE_CROSS=true" >> $GITHUB_ENV
 
     - name: Cache cargo registry
       uses: actions/cache@v4
@@ -105,7 +105,11 @@ jobs:
     - name: Build release binary
       shell: bash
       run: |
-        cargo build --release --target ${{ matrix.platform.target }}
+        if [ "$USE_CROSS" = "true" ]; then
+          cross build --release --target ${{ matrix.platform.target }}
+        else
+          cargo build --release --target ${{ matrix.platform.target }}
+        fi
 
     - name: Prepare release asset (Unix)
       if: runner.os != 'Windows'
@@ -131,7 +135,7 @@ jobs:
       run: |
         BINARY_NAME="gliror.exe"
         BINARY_PATH="target/${{ matrix.platform.target }}/release/$BINARY_NAME"
-        ASSET_NAME="${{ matrix.platform.artifact_name }}_v${{ env.VERSION }}"
+        ASSET_NAME="${{ matrix.platform.artifact_name }}_v${{ env.VERSION }}.exe"
         
         echo "Copying $BINARY_PATH to $ASSET_NAME"
         cp "$BINARY_PATH" "$ASSET_NAME"
