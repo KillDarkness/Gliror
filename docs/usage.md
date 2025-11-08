@@ -29,6 +29,13 @@ gliror [OPTIONS]
 - `-V, --version`: Print version information
 - `-o, --output <OUTPUT>`: Output results to a file (JSON format)
 
+### Configuration File
+- `--config <PATH>`: Path to a YAML configuration file.
+
+You can define all attack parameters in a YAML file and load it using the `--config` flag. This is useful for managing complex or repeated attack scenarios. Command-line arguments will always override values set in the configuration file.
+
+See the [Configuration File](configuration.md) documentation for a detailed guide and a full example.
+
 ## Usage Examples
 
 ### Basic Usage
