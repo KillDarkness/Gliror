@@ -1,48 +1,88 @@
-![GLIROR](https://i.imgur.com/uqXfbxe.jpeg)
+<div align="center">
+  <img src="https://i.imgur.com/uqXfbxe.jpeg" alt="GLIROR Banner">
+  <h1>GLIROR</h1>
+  <p>
+    <strong>An advanced, multi-vector (HTTP, UDP, Slowloris) DoS and Load Testing tool with cluster support, written in Rust.</strong>
+  </p>
+  <p>
+    <a href="https://crates.io/crates/gliror"><img src="https://img.shields.io/crates/v/gliror.svg" alt="Crates.io"></a>
+    <a href="https://docs.rs/gliror"><img src="https://docs.rs/gliror/badge.svg" alt="Docs.rs"></a>
+    <a href="https://github.com/KillDarkness/Gliror/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  </p>
+</div>
 
-# GLIROR
-
-A high-performance DoS (Denial of Service) tool written in Rust with colorful status display, error detection, and performance monitoring.
-
-## Documentation
-
-Comprehensive documentation is available in the [docs](docs/) directory:
-
-- [Overview](docs/overview.md) - Introduction and core concepts
-- [Installation](docs/installation.md) - How to install and set up GLIROR
-- [Usage](docs/usage.md) - Detailed usage instructions and examples
-- [Features](docs/features.md) - In-depth feature explanations
-- [Advanced Usage](docs/advanced.md) - Advanced techniques and best practices
-- [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
-- [Performance Tips](docs/performance.md) - Optimizing GLIROR performance
-- [Legal Notice](docs/legal.md) - Important legal information
-- [FAQ](docs/faq.md) - Frequently asked questions
+GLIROR is a high-performance Denial of Service and load testing tool designed for security professionals and developers. It supports multiple attack vectors, real-time performance monitoring, and can be run in a distributed cluster for large-scale tests.
 
 ## Features
 
-- **ASCII Art Display**: Shows ASCII art in cyan at startup (intentionally kept as requested)
-- **Concurrent Requests**: Sends thousands of requests per second using async/await
-- **Configurable Duration**: Set attack duration or run unlimited
-- **Real-time Status**: Displays live statistics with colors
-- **Error Detection**: Monitors for high error rates and alerts user
-- **Performance Monitoring**: Tracks average response times and warns of slow requests
-- **HTTP Method Selection**: Support for GET, POST, PUT, DELETE, PATCH, HEAD methods
-- **Custom Headers**: Add custom headers to requests
-- **Request Payloads**: Send data in requests (for POST, PUT, etc.)
-- **Proxy Support**: Route requests through proxies
-- **Rate Control**: Adjustable concurrent requests and delays
-- **Results Output**: Save structured test results to JSON files
-- **Two Modes**: 
-  - **Fast Mode**: 100 concurrent requests for maximum load (when time=0)
-  - **Medium Mode**: 20 concurrent requests for sustained attack
-- **UDP Flood Attack**: New UDP-based flooding capability for DDoS testing
-- **Slowloris Attack**: Added Slowloris attack to hold connections open and exhaust server resources
-- **Attack Type Selection**: Choose between HTTP, UDP, or Slowloris attack types
+- **Multiple Attack Vectors**: Supports HTTP/S flooding, UDP flooding, and Slowloris attacks.
+- **Cluster Mode**: Distribute load across multiple worker nodes, controlled by a central master.
+- **YAML Configuration**: Define and manage complex attack profiles using simple YAML files.
+- **Real-time Monitoring**: Colorful, real-time status display of key metrics like RPS, success/error rates, and average response time.
+- **Advanced HTTP Control**: Customize HTTP method, headers, and request payloads.
+- **Network Flexibility**: Route traffic through HTTP/S proxies.
+- **Rate & Duration Control**: Fine-tune concurrency, delay, and attack duration.
+- **JSON Output**: Save comprehensive test results to a JSON file for analysis.
 
-## Important Note
+## Installation
 
-This tool is intended for educational purposes and authorized penetration testing only. Misuse of this tool against systems without explicit permission may be illegal and could cause service disruptions. Always obtain proper authorization before testing. See our [Legal Notice](docs/legal.md) for complete legal information.
+Ensure you have the Rust toolchain installed. Then, install GLIROR from Crates.io:
+
+```bash
+cargo install gliror
+```
+
+## Quick Start
+
+### Example 1: Simple HTTP Flood
+
+```bash
+gliror --url http://example.com --time 60 --concurrent 100
+```
+
+### Example 2: UDP Flood
+
+```bash
+gliror --attack-type udp --host 1.1.1.1 --target-port 53 --time 60
+```
+
+### Example 3: Using a Configuration File
+
+Create a file named `attack.yml`:
+```yaml
+url: "http://example.com"
+attack_type: "http"
+time: 120
+concurrent: 200
+headers:
+  X-Custom-Header: "gliror-test"
+```
+
+Run the attack:
+```bash
+gliror --config attack.yml
+```
+
+## Documentation
+
+For detailed information, please refer to the documentation in the `docs/` directory.
+
+1.  [Overview](docs/overview.md)
+2.  [Installation](docs/installation.md)
+3.  [Usage](docs/usage.md)
+4.  [Configuration File](docs/configuration.md)
+5.  [Features](docs/features.md)
+6.  [Advanced Usage](docs/advanced.md)
+7.  [Cluster Mode](docs/cluster.md)
+8.  [Troubleshooting](docs/troubleshooting.md)
+9.  [Performance Tips](docs/performance.md)
+10. [Legal Notice](docs/legal.md)
+11. [FAQ](docs/faq.md)
+
+## Legal Disclaimer
+
+This tool is intended for educational purposes and authorized security testing only. Misuse of this tool against systems without explicit permission is illegal. The developers assume no liability and are not responsible for any misuse or damage caused by this program.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
