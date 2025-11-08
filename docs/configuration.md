@@ -48,6 +48,8 @@ data: '{"key": "value"}'
 headers:
   Content-Type: "application/json"
   X-Custom-Header: "gliror-ddos"
+# Randomize User-Agent for each request (true/false)
+random_ua: true
 
 # --- Network ---
 # Proxy server (e.g., "http://user:pass@host:port")
