@@ -8,7 +8,10 @@ use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use chrono::DateTime;
+use chrono::{DateTime, Utc, Local};
+use serde_xml_rs;
+use csv::Writer;
+use std::path::Path;
 
 // Parse schedule time (either timestamp in seconds or "YYYY-MM-DD HH:MM:SS" format)
 fn parse_schedule_time(schedule: Option<String>) -> Option<Instant> {
@@ -33,17 +36,80 @@ fn parse_schedule_time(schedule: Option<String>) -> Option<Instant> {
     None
 }
 
+// Helper function to determine the output format from the file extension
+fn get_output_format(output_path: &str) -> &'static str {
+    let path = std::path::Path::new(output_path);
+    match path.extension().and_then(|ext| ext.to_str()) {
+        Some("json") => "json",
+        Some("xml") => "xml",
+        Some("yaml") | Some("yml") => "yaml",
+        Some("csv") => "csv",
+        Some("toml") => "toml",
+        _ => "json", // default to json
+    }
+}
+
+// Helper function to calculate percentiles from response times
+fn calculate_percentiles(times: &[f64]) -> (f64, f64, f64) {
+    if times.is_empty() {
+        return (0.0, 0.0, 0.0);
+    }
+    
+    let mut sorted_times = times.to_vec();
+    sorted_times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    
+    let len = sorted_times.len();
+    
+    // Median (50th percentile)
+    let median = if len % 2 == 0 {
+        (sorted_times[len / 2 - 1] + sorted_times[len / 2]) / 2.0
+    } else {
+        sorted_times[len / 2]
+    };
+    
+    // 95th percentile
+    let p95_idx = ((0.95 * len as f64) as usize).min(len - 1);
+    let p95 = sorted_times[p95_idx];
+    
+    // 99th percentile
+    let p99_idx = ((0.99 * len as f64) as usize).min(len - 1);
+    let p99 = sorted_times[p99_idx];
+    
+    (median, p95, p99)
+}
+
 #[derive(Serialize)]
-struct AttackResults {
+struct RequestStats {
+    sent: u64,
+    success: u64,
+    error: u64,
+    response_time_ms: f64,
+}
+
+#[derive(Serialize)]
+struct DetailedAttackResults {
     total_requests: u64,
     successful_requests: u64,
     failed_requests: u64,
     success_rate: f64,
     average_rps: f64,
+    min_response_time: f64,
+    max_response_time: f64,
     average_response_time: f64,
+    median_response_time: f64,
+    p95_response_time: f64,
+    p99_response_time: f64,
     duration_seconds: f64,
+    start_time: String,  // ISO 8601 timestamp
+    end_time: String,    // ISO 8601 timestamp
     target_url: String,
     method: String,
+    headers: HashMap<String, String>,
+    data_size_bytes: usize,
+    concurrent_requests: usize,
+    delay_ms: u64,
+    total_bytes_transferred: u64,
+    requests_per_second_timeline: Vec<RequestStats>, // For time-series analysis
 }
 
 pub async fn perform_attack(
@@ -341,26 +407,148 @@ pub async fn perform_attack(
     }
     
     if let Some(output_path) = output_file {
-        let results = AttackResults {
+        
+        // Calculate detailed statistics
+        let avg_response_times = avg_response_time.lock().unwrap();
+        let response_times: Vec<f64> = avg_response_times.clone();
+        let (median_response_time, p95_response_time, p99_response_time) = calculate_percentiles(&response_times);
+
+        let min_response_time = if !response_times.is_empty() {
+            response_times.iter().fold(f64::INFINITY, |a, &b| a.min(b))
+        } else {
+            0.0
+        };
+
+        let max_response_time = if !response_times.is_empty() {
+            response_times.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b))
+        } else {
+            0.0
+        };
+
+        let start_time_local = chrono::Local::now();
+        let end_time_local = chrono::Local::now();
+
+        // Calculate total bytes transferred (approximation based on request/response sizes)
+        let data_size_bytes = data.as_ref().map(|d| d.len()).unwrap_or(0);
+        let total_bytes_transferred = total_sent * (data_size_bytes as u64); // Approximation
+
+        // Use target_concurrent for concurrent_requests
+        let concurrent_requests = if let Some(concurrent_val) = concurrent {
+            concurrent_val as usize
+        } else {
+            if duration == 0 { 100 } else { 20 }
+        };
+
+        let detailed_results = DetailedAttackResults {
             total_requests: total_sent,
             successful_requests: total_success,
             failed_requests: total_error,
             success_rate,
             average_rps: if total_sent > 0 { total_sent as f64 / start_time.elapsed().as_secs_f64() } else { 0.0 },
+            min_response_time,
+            max_response_time,
             average_response_time: avg_time,
+            median_response_time,
+            p95_response_time,
+            p99_response_time,
             duration_seconds: start_time.elapsed().as_secs_f64(),
+            start_time: start_time_local.to_rfc3339(),
+            end_time: end_time_local.to_rfc3339(),
             target_url: url.clone(),
             method: method.clone(),
+            headers: headers.clone(),
+            data_size_bytes,
+            concurrent_requests,
+            delay_ms: delay,
+            total_bytes_transferred,
+            requests_per_second_timeline: vec![], // We could implement this for time-series data if needed
         };
-        
-        match serde_json::to_string_pretty(&results) {
-            Ok(json) => {
-                match std::fs::write(&output_path, json) {
-                    Ok(_) => println!("\n{} Results saved to: {}", "INFO".blue(), output_path),
-                    Err(e) => eprintln!("\n{} Failed to save results to {}: {}", "ERROR".red(), output_path, e),
+
+        // Determine output format based on file extension
+        let format = get_output_format(&output_path);
+
+        match format {
+            "json" => {
+                match serde_json::to_string_pretty(&detailed_results) {
+                    Ok(json) => {
+                        match std::fs::write(&output_path, json) {
+                            Ok(_) => println!("\n{} Results saved to: {} (JSON format)", "INFO".blue(), output_path),
+                            Err(e) => eprintln!("\n{} Failed to save results to {}: {}", "ERROR".red(), output_path, e),
+                        }
+                    }
+                    Err(e) => eprintln!("\n{} Failed to serialize results to JSON: {}", "ERROR".red(), e),
                 }
             }
-            Err(e) => eprintln!("\n{} Failed to serialize results: {}", "ERROR".red(), e),
+            "xml" => {
+                match serde_xml_rs::to_string(&detailed_results) {
+                    Ok(xml) => {
+                        match std::fs::write(&output_path, xml) {
+                            Ok(_) => println!("\n{} Results saved to: {} (XML format)", "INFO".blue(), output_path),
+                            Err(e) => eprintln!("\n{} Failed to save results to {}: {}", "ERROR".red(), output_path, e),
+                        }
+                    }
+                    Err(e) => eprintln!("\n{} Failed to serialize results to XML: {}", "ERROR".red(), e),
+                }
+            }
+            "yaml" => {
+                match serde_yaml::to_string(&detailed_results) {
+                    Ok(yaml) => {
+                        match std::fs::write(&output_path, yaml) {
+                            Ok(_) => println!("\n{} Results saved to: {} (YAML format)", "INFO".blue(), output_path),
+                            Err(e) => eprintln!("\n{} Failed to save results to {}: {}", "ERROR".red(), output_path, e),
+                        }
+                    }
+                    Err(e) => eprintln!("\n{} Failed to serialize results to YAML: {}", "ERROR".red(), e),
+                }
+            }
+            "csv" => {
+                // For CSV, we can create a simplified version with just key metrics
+                let mut wtr = csv::Writer::from_path(&output_path).unwrap();
+                
+                // Write headers
+                wtr.write_record(&["total_requests", "successful_requests", "failed_requests", 
+                                  "success_rate", "average_rps", "min_response_time", 
+                                  "max_response_time", "average_response_time", 
+                                  "median_response_time", "p95_response_time", 
+                                  "p99_response_time", "duration_seconds", 
+                                  "target_url", "method"])
+                    .unwrap();
+
+                // Write data row
+                wtr.write_record(&[
+                    total_sent.to_string(),
+                    total_success.to_string(),
+                    total_error.to_string(),
+                    success_rate.to_string(),
+                    (if total_sent > 0 { total_sent as f64 / start_time.elapsed().as_secs_f64() } else { 0.0 }).to_string(),
+                    min_response_time.to_string(),
+                    max_response_time.to_string(),
+                    avg_time.to_string(),
+                    median_response_time.to_string(),
+                    p95_response_time.to_string(),
+                    p99_response_time.to_string(),
+                    start_time.elapsed().as_secs_f64().to_string(),
+                    url.clone(),
+                    method.clone(),
+                ]).unwrap();
+                
+                wtr.flush().unwrap();
+                println!("\n{} Results saved to: {} (CSV format)", "INFO".blue(), output_path);
+            }
+            "toml" => {
+                match toml::to_string(&detailed_results) {
+                    Ok(toml_str) => {
+                        match std::fs::write(&output_path, toml_str) {
+                            Ok(_) => println!("\n{} Results saved to: {} (TOML format)", "INFO".blue(), output_path),
+                            Err(e) => eprintln!("\n{} Failed to save results to {}: {}", "ERROR".red(), output_path, e),
+                        }
+                    }
+                    Err(e) => eprintln!("\n{} Failed to serialize results to TOML: {}", "ERROR".red(), e),
+                }
+            }
+            _ => {
+                eprintln!("\n{} Unsupported file format for: {}", "ERROR".red(), output_path);
+            }
         }
     }
 }
