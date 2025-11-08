@@ -18,7 +18,7 @@ pub fn parse_headers(header_args: &[String]) -> HashMap<String, String> {
     name = "GLIROR",
     about = "High-performance DoS tool with colorful status display",
     author = "GLIROR Team",
-    version = "1.0.6"
+    version = "1.0.7"
 )]
 pub struct Args {
     /// Path to a YAML configuration file
@@ -52,6 +52,10 @@ pub struct Args {
     /// Custom headers (format: "Header-Name: value") - ignored for UDP
     #[clap(short = 'H', long, value_parser)]
     pub header: Vec<String>,
+
+    /// Randomize User-Agent for each request
+    #[clap(long, action = clap::ArgAction::SetTrue)]
+    pub random_ua: bool,
     
     /// Request payload/data to send
     #[clap(short = 'D', long, value_parser)]
