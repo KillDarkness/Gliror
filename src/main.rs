@@ -15,10 +15,73 @@ use http::perform_attack;
 use udp::perform_udp_attack;
 use cli::parse_headers;
 use cluster::{ClusterCoordinator, ClusterConfig, WorkerState, WorkerStatus, WorkerProgress};
+use gliror::config::Config;
+use std::fs;
 
 #[tokio::main]
 async fn main() {
-    let args = Args::parse();
+    let mut args = Args::parse();
+
+    if let Some(config_path) = &args.config {
+        match fs::read_to_string(config_path) {
+            Ok(config_str) => {
+                match serde_yaml::from_str::<Config>(&config_str) {
+                    Ok(config) => {
+                        // Merge config into args, giving precedence to CLI args that are explicitly set.
+                        args.url = args.url.or(config.url);
+                        args.host = args.host.or(config.host);
+                        args.target_port = args.target_port.or(config.target_port);
+                        if args.attack_type == "http" { // Default value
+                           if let Some(attack_type) = config.attack_type {
+                                args.attack_type = attack_type;
+                           }
+                        }
+                        if args.time == 30 { // Default value
+                            if let Some(time) = config.time {
+                                args.time = time;
+                            }
+                        }
+                        if args.method == "GET" { // Default value
+                            if let Some(method) = config.method {
+                                args.method = method;
+                            }
+                        }
+                        if args.header.is_empty() {
+                            if let Some(headers_map) = config.headers {
+                                args.header = headers_map.into_iter().map(|(k, v)| format!("{}: {}", k, v)).collect();
+                            }
+                        }
+                        args.data = args.data.or(config.data);
+                        args.proxy = args.proxy.or(config.proxy);
+                        args.concurrent = args.concurrent.or(config.concurrent);
+                        if args.delay == 0 { // Default value
+                            if let Some(delay) = config.delay {
+                                args.delay = delay;
+                            }
+                        }
+                        args.ramp_up = args.ramp_up.or(config.ramp_up);
+                        args.schedule = args.schedule.or(config.schedule);
+                        if !args.cluster_mode { // Default value
+                            if let Some(cluster_mode) = config.cluster_mode {
+                                args.cluster_mode = cluster_mode;
+                            }
+                        }
+                        args.worker_id = args.worker_id.or(config.worker_id);
+                        args.coordinator_addr = args.coordinator_addr.or(config.coordinator_addr);
+                        args.total_workers = args.total_workers.or(config.total_workers);
+                        args.port = args.port.or(config.port);
+                        args.role = args.role.or(config.role);
+                    }
+                    Err(e) => {
+                        eprintln!("{} Failed to parse config file: {}", "ERROR".red(), e);
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("{} Failed to read config file: {}", "ERROR".red(), e);
+            }
+        }
+    }
     
     if std::env::args().any(|arg| arg == "--version" || arg == "-V") {
         println!("GLIROR {}", env!("CARGO_PKG_VERSION"));
