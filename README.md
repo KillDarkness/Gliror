@@ -6,7 +6,7 @@
   </p>
   <p>
     <a href="https://crates.io/crates/gliror"><img src="https://img.shields.io/crates/v/gliror.svg" alt="Crates.io"></a>
-    <a href="https://docs.rs/gliror"><img src="https://docs.rs/gliror/badge.svg" alt="Docs.rs"></a>
+    <a href="https://github.com/KillDarkness/Gliror/blob/main/docs/index.md"><img src="https://img.shields.io/badge/docs-main-blue.svg" alt="Documentation"></a>
     <a href="https://github.com/KillDarkness/Gliror/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
   </p>
 </div>
