@@ -18,9 +18,13 @@ pub fn parse_headers(header_args: &[String]) -> HashMap<String, String> {
     name = "GLIROR",
     about = "High-performance DoS tool with colorful status display",
     author = "GLIROR Team",
-    version = "1.0.5"
+    version = "1.0.6"
 )]
 pub struct Args {
+    /// Path to a YAML configuration file
+    #[clap(long, value_parser)]
+    pub config: Option<String>,
+
     /// Target URL to attack (for HTTP attacks) or host:port for UDP attacks
     #[clap(short, long, value_parser)]
     pub url: Option<String>,
