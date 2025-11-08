@@ -2,6 +2,7 @@ use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest;
 use serde::Serialize;
+pub mod user_agents;
 use std::collections::HashMap;
 use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -56,7 +57,8 @@ pub async fn perform_attack(
     delay: u64,
     output_file: Option<String>,
     ramp_up: Option<u64>,
-    schedule: Option<String>
+    schedule: Option<String>,
+    random_ua: bool,
 ) {
     // Handle scheduling with countdown
     if let Some(scheduled_time) = parse_schedule_time(schedule) {
@@ -159,6 +161,7 @@ pub async fn perform_attack(
         let avg_response_time_clone = avg_response_time.clone();
         let last_slow_warning_clone = last_slow_warning.clone();
         let delay_clone = delay;
+        let random_ua_clone = random_ua;
         
         let task = tokio::spawn(async move {
             loop {
@@ -178,7 +181,14 @@ pub async fn perform_attack(
                     _ => client_clone.get(&url_clone),
                 };
                 
-                for (key, value) in &headers_clone {
+                let headers = headers_clone.clone();
+
+                // Add random User-Agent if enabled and not already set
+                if random_ua_clone && !headers.keys().any(|k| k.eq_ignore_ascii_case("user-agent")) {
+                    request_builder = request_builder.header("User-Agent", user_agents::get_random_user_agent());
+                }
+
+                for (key, value) in &headers {
                     request_builder = request_builder.header(key, value);
                 }
                 
