@@ -18,7 +18,7 @@ pub fn parse_headers(header_args: &[String]) -> HashMap<String, String> {
     name = "GLIROR",
     about = "High-performance DoS tool with colorful status display",
     author = "GLIROR Team",
-    version = "1.0.8"
+    version = "1.0.9"
 )]
 pub struct Args {
     /// Path to a YAML configuration file
@@ -108,4 +108,8 @@ pub struct Args {
     /// Cluster worker role ('master' or 'worker')
     #[clap(long, value_parser)]
     pub role: Option<String>,
+    
+    /// Cluster distribution mode ('even' or 'max-power')
+    #[clap(long, value_parser, default_value = "even")]
+    pub distribution_mode: String,
 }
