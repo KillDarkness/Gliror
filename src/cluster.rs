@@ -15,6 +15,15 @@ pub struct ClusterConfig {
     pub total_workers: usize,
     pub worker_id: Option<String>,
     pub coordinator_addr: String,
+    pub distribution_mode: ClusterDistributionMode,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum ClusterDistributionMode {
+    /// Distribute load evenly across workers (current behavior)
+    Even,
+    /// Each worker runs with full capacity (new behavior for performance)
+    MaxPower,
 }
 
 impl ClusterConfig {
@@ -25,6 +34,18 @@ impl ClusterConfig {
             total_workers,
             worker_id: None,
             coordinator_addr,
+            distribution_mode: ClusterDistributionMode::Even, // Default to even distribution for backward compatibility
+        }
+    }
+    
+    pub fn new_with_distribution_mode(total_workers: usize, coordinator_addr: String, distribution_mode: ClusterDistributionMode) -> Self {
+        ClusterConfig {
+            leader_id: Uuid::new_v4().to_string(),
+            workers: vec![],
+            total_workers,
+            worker_id: None,
+            coordinator_addr,
+            distribution_mode,
         }
     }
 }
