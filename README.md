@@ -63,6 +63,41 @@ Run the attack:
 gliror --config attack.yml
 ```
 
+### Example 4: Configuration File with Cluster Distribution Mode
+
+Create a file named `cluster_attack.yml`:
+```yaml
+url: "http://example.com"
+attack_type: "http"
+time: 120
+concurrent: 200
+cluster_mode: true
+role: "master"
+distribution_mode: "max-power"  # Options: "even" (default), "max-power"
+total_workers: 2
+port: 8080
+output: "results.json"  # Output file for worker results
+```
+
+Run the master node:
+```bash
+gliror --config cluster_attack.yml --role master
+```
+
+### Example 5: Cluster Mode with Max Power Distribution
+
+Run the master node with max power distribution mode:
+```bash
+gliror --cluster-mode --role master --distribution-mode max-power --url http://example.com --time 60 --concurrent 1000
+```
+
+Run worker nodes:
+```bash
+gliror --cluster-mode --role worker --coordinator-addr http://MASTER_IP:8080
+```
+
+This will distribute the full concurrent load to each worker, allowing for maximum request throughput across the cluster.
+
 ## Documentation
 
 For detailed information, please refer to the documentation in the `docs/` directory.
