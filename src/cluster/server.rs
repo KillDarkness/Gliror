@@ -19,7 +19,6 @@ async fn register_worker(
     Json(payload): Json<WorkerState>,
 ) -> impl IntoResponse {
     let worker_id = payload.id.clone();
-    println!("{} Worker {} connected.", colored::Colorize::blue("INFO"), worker_id);
     let mut workers = coordinator.workers.write().await;
     if workers.contains_key(&worker_id) {
         println!("{} Worker {} reconnected.", colored::Colorize::blue("INFO"), worker_id);
@@ -99,8 +98,18 @@ async fn get_task(
         let workers = coordinator.workers.read().await;
         let total_workers = workers.len() as u32;
         let mut distributed_command = command.clone();
-        if let Some(concurrent) = distributed_command.concurrent {
-            distributed_command.concurrent = Some((concurrent / total_workers).max(1));
+        
+        match &coordinator.config.distribution_mode {
+            crate::cluster::ClusterDistributionMode::Even => {
+                if let Some(concurrent) = distributed_command.concurrent {
+                    distributed_command.concurrent = Some((concurrent / total_workers).max(1));
+                }
+            }
+            crate::cluster::ClusterDistributionMode::MaxPower => {
+                // For MaxPower mode, each worker gets the full concurrent value
+                // This means each worker will run at maximum capacity
+                // No changes needed to the concurrent value
+            }
         }
         (StatusCode::OK, Json(Some(distributed_command)))
     } else {
