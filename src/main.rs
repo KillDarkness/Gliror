@@ -72,6 +72,11 @@ async fn main() {
                         args.total_workers = args.total_workers.or(config.total_workers);
                         args.port = args.port.or(config.port);
                         args.role = args.role.or(config.role);
+                        if args.distribution_mode == "even" { // Default value
+                            if let Some(distribution_mode) = config.distribution_mode {
+                                args.distribution_mode = distribution_mode;
+                            }
+                        }
                         if !args.random_ua { // If CLI did NOT set --random-ua
                             if let Some(config_random_ua) = config.random_ua {
                                 args.random_ua = config_random_ua;
@@ -258,9 +263,17 @@ async fn run_master_node(args: Args) {
         format!("http://localhost:{}", port)
     };
     
-    let config = ClusterConfig::new(
+    use cluster::ClusterDistributionMode;
+    
+    let distribution_mode = match args_clone.distribution_mode.as_str() {
+        "max-power" => ClusterDistributionMode::MaxPower,
+        _ => ClusterDistributionMode::Even, // Default to even distribution
+    };
+    
+    let config = ClusterConfig::new_with_distribution_mode(
         args_clone.total_workers.unwrap_or(2),
-        coordinator_addr
+        coordinator_addr,
+        distribution_mode
     );
 
     let coordinator = Arc::new(ClusterCoordinator::new(config));
@@ -376,8 +389,15 @@ async fn run_master_node(args: Args) {
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
     }
 
+    // All workers should have completed by now, wait a bit more for final reports
+    println!("{} All workers should have completed. Waiting 5 more seconds for final reports...", "INFO".blue());
+    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+
     pb.finish_and_clear();
-    println!("{} Attack duration finished.", "INFO".blue());
+    println!("{} All workers completed. Attack finished.", "INFO".blue());
+    
+    // Exit immediately after all workers complete
+    std::process::exit(0);
 }
 
 use std::time::{Duration, Instant};
@@ -700,16 +720,69 @@ async fn run_worker_node(args: Args) {
                             let _ = handle.await;
                         }
                         
+                        // Get final statistics
+                        let final_requests_sent = requests_sent.load(Ordering::Relaxed);
+                        let final_requests_success = requests_success.load(Ordering::Relaxed);
+                        let final_requests_error = requests_error.load(Ordering::Relaxed);
+
                         // Update worker status to Completed
                         let _ = client.post(format!("{}/workers/{}/status", coordinator_addr, worker_id))
                             .json(&WorkerStatus::Completed)
                             .send()
                             .await;
+
+                        // Print final report
+                        println!("\n{} Worker {} completed attack", "ATTACK COMPLETED".green().bold(), worker_id);
+                        println!("Total requests sent: {}", final_requests_sent);
+                        println!("Successful requests: {}", final_requests_success);
+                        println!("Failed requests: {}", final_requests_error);
                         
-                        println!("{} Worker {} attack finished. Waiting for new tasks...", "INFO".blue(), worker_id);
+                        let success_rate = if final_requests_sent > 0 {
+                            (final_requests_success as f64 / final_requests_sent as f64) * 100.0
+                        } else {
+                            0.0
+                        };
                         
-                        // Continue polling for new tasks instead of exiting
-                        continue;
+                        if final_requests_sent > 0 {
+                            println!("Success rate: {:.2}%", success_rate);
+                        }
+
+                        // Try to save detailed results to output file if specified in the task
+                        if let Some(output_path) = &task.output {
+                            use std::fs;
+                            use serde_json::json;
+                            
+                            let results = json!({
+                                "worker_id": worker_id,
+                                "attack_details": {
+                                    "url": &task.url,
+                                    "attack_type": &task.attack_type,
+                                    "time": task.time,
+                                    "method": &task.method,
+                                    "concurrent": task.concurrent,
+                                    "delay": task.delay
+                                },
+                                "total_requests_sent": final_requests_sent,
+                                "successful_requests": final_requests_success,
+                                "failed_requests": final_requests_error,
+                                "success_rate": success_rate,
+                                "timestamp": chrono::Utc::now().to_rfc3339(),
+                                "elapsed_time": attack_start_time.elapsed().as_secs_f64()
+                            });
+                            
+                            match fs::write(output_path, serde_json::to_string_pretty(&results).unwrap()) {
+                                Ok(_) => println!("{} Results saved to: {}", "INFO".blue(), output_path),
+                                Err(e) => eprintln!("{} Failed to save results to {}: {}", "ERROR".red(), output_path, e),
+                            }
+                        }
+
+                        println!("{} Worker {} completed attack and shutting down.", "INFO".blue(), worker_id);
+
+                        // Small delay to ensure output is displayed and file is written
+                        tokio::time::sleep(Duration::from_secs(2)).await;
+
+                        // Exit the worker process after completing the attack
+                        std::process::exit(0);
                     }
                     Ok(None) => {
                         // Worker is still waiting for a task, continue polling
