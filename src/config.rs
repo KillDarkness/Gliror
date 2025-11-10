@@ -24,4 +24,5 @@ pub struct Config {
     pub total_workers: Option<usize>,
     pub port: Option<u16>,
     pub role: Option<String>,
+    pub distribution_mode: Option<String>,
 }
