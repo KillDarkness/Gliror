@@ -8,10 +8,8 @@ use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use chrono::{DateTime, Utc, Local};
+use chrono::DateTime;
 use serde_xml_rs;
-use csv::Writer;
-use std::path::Path;
 
 // Parse schedule time (either timestamp in seconds or "YYYY-MM-DD HH:MM:SS" format)
 fn parse_schedule_time(schedule: Option<String>) -> Option<Instant> {
