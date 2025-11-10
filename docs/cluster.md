@@ -40,6 +40,7 @@ cargo run -- --cluster-mode --role worker --coordinator-addr "http://<master_ip>
 
 - `--cluster-mode`: Enable cluster mode
 - `--role <role>`: Specify node role ('master' or 'worker')
+- `--distribution-mode <mode>`: Distribution mode ('even' or 'max-power') (default: 'even')
 - `--total-workers <number>`: Number of expected worker nodes (master only)
 - `--coordinator-addr <address>`: Coordinator address in format `http://host:port` (worker only)
 - `--worker-id <id>`: Unique identifier for the worker (worker only)
@@ -80,6 +81,25 @@ cargo run -- --cluster-mode --role worker --coordinator-addr "http://localhost:8
 cargo run -- --cluster-mode --role worker --coordinator-addr "http://localhost:8080" --worker-id "worker2"
 ```
 
+### Max Power Cluster
+
+**Master (Terminal 1):**
+```bash
+cargo run -- --cluster-mode --role master --distribution-mode max-power --url http://example.com --time 60 --concurrent 500 --total-workers 2 --port 8080
+```
+
+**Worker 1 (Terminal 2):**
+```bash
+cargo run -- --cluster-mode --role worker --coordinator-addr "http://localhost:8080" --worker-id "worker1"
+```
+
+**Worker 2 (Terminal 3):**
+```bash
+cargo run -- --cluster-mode --role worker --coordinator-addr "http://localhost:8080" --worker-id "worker2"
+```
+
+In this configuration, each worker will run with 500 concurrent requests instead of 250 each, potentially doubling the total throughput.
+
 ### Multi-Machine Cluster
 
 **Master (on 192.168.1.100):**
@@ -102,8 +122,8 @@ cargo run -- --cluster-mode --role worker --coordinator-addr "http://192.168.1.1
 ### Task Distribution
 
 - The master distributes attack commands to all registered workers
-- Concurrent requests are automatically divided among available workers
-- Each worker receives a portion of the total concurrent requests to ensure even distribution
+- By default, concurrent requests are automatically divided among available workers (even distribution mode)
+- With max-power distribution mode, each worker receives the full concurrent request load, enabling maximum throughput
 
 ### Real-time Monitoring
 
@@ -171,9 +191,31 @@ The coordinator exposes the following endpoints:
 
 ### Concurrent Request Distribution
 
-- Total concurrent requests are divided among workers
-- Each worker gets a proportional share of the total load
-- Example: 1000 total concurrent requests with 4 workers → ~250 per worker
+- In 'even' mode: Total concurrent requests are divided among workers
+  - Each worker gets a proportional share of the total load
+  - Example: 1000 total concurrent requests with 4 workers → ~250 per worker
+  
+- In 'max-power' mode: Each worker receives the full concurrent request load
+  - Each worker runs at maximum capacity
+  - Example: 1000 concurrent requests with 4 workers → 1000 per worker
+  - This can significantly increase total throughput but requires more system resources
+
+### Configuration File Support
+
+The distribution mode can also be set via configuration file:
+
+```yaml
+url: "http://example.com"
+attack_type: "http"
+time: 120
+concurrent: 200
+cluster_mode: true
+role: "master"
+distribution_mode: "max-power"  # Options: "even" (default), "max-power"
+total_workers: 2
+port: 8080
+output: "results.json"  # Output file for worker results
+```
 
 ## Error Handling
 
