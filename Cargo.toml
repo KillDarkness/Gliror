@@ -1,6 +1,6 @@
 [package]
 name = "gliror"
-version = "1.0.9"
+version = "1.1.0"
 edition = "2021"
 authors = ["KillDarkness"]
 description = "Advanced Rust-based DoS/Load Testing Tool with Concurrent Requests"
