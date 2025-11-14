@@ -116,7 +116,7 @@ pub async fn perform_attack(
     method: String, 
     headers: HashMap<String, String>, 
     data: Option<String>,
-    proxy: Option<String>,
+    proxies: Vec<String>,
     concurrent: Option<u32>,
     delay: u64,
     output_file: Option<String>,
@@ -170,18 +170,10 @@ pub async fn perform_attack(
     let avg_response_time = Arc::new(Mutex::new(Vec::new()));
     let last_slow_warning = Arc::new(Mutex::new(Instant::now()));
     
-    let mut client_builder = reqwest::Client::builder()
-        .timeout(Duration::from_secs(10));
-    
-    if let Some(proxy_url) = proxy {
-        if let Ok(p) = reqwest::Proxy::all(&proxy_url) {
-            client_builder = client_builder.proxy(p);
-        } else {
-            eprintln!("{} Invalid proxy URL: {}", "ERROR".red(), proxy_url);
-        }
-    }
-    
-    let client = client_builder.build().expect("Failed to create client");
+    let default_client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .expect("Failed to create default client");
     
     let target_concurrent = if let Some(concurrent_val) = concurrent {
         concurrent_val as usize
@@ -213,8 +205,26 @@ pub async fn perform_attack(
     
     let mut tasks = Vec::new();
     
-    for _ in 0..num_concurrent_requests {
-        let client_clone = client.clone();
+    for i in 0..num_concurrent_requests {
+        let client_clone = if !proxies.is_empty() {
+            let proxy_url = &proxies[i % proxies.len()];
+            match reqwest::Proxy::all(proxy_url) {
+                Ok(proxy) => reqwest::Client::builder()
+                    .proxy(proxy)
+                    .timeout(Duration::from_secs(10))
+                    .build()
+                    .unwrap_or_else(|e| {
+                        eprintln!("{} Failed to build proxy client: {}", "ERROR".red(), e);
+                        default_client.clone()
+                    }),
+                Err(e) => {
+                    eprintln!("{} Invalid proxy URL '{}': {}", "ERROR".red(), proxy_url, e);
+                    default_client.clone()
+                }
+            }
+        } else {
+            default_client.clone()
+        };
         let url_clone = url.clone();
         let method_clone = method.clone();
         let headers_clone = headers.clone();
@@ -226,6 +236,7 @@ pub async fn perform_attack(
         let last_slow_warning_clone = last_slow_warning.clone();
         let delay_clone = delay;
         let random_ua_clone = random_ua;
+        let pb_clone = pb.clone();
         
         let task = tokio::spawn(async move {
             loop {
@@ -275,7 +286,7 @@ pub async fn perform_attack(
                         if elapsed > 2000.0 {
                             let mut last_warning = last_slow_warning_clone.lock().unwrap();
                             if last_warning.elapsed() > Duration::from_secs(5) {
-                                println!("\n{} Slow request detected: {:.2}ms", "WARNING".yellow(), elapsed);
+                                pb_clone.println(format!("{} Slow request detected: {:.2}ms", "WARNING".yellow(), elapsed));
                                 *last_warning = Instant::now();
                             }
                         }
@@ -339,12 +350,12 @@ pub async fn perform_attack(
                 if error > 0 && sent > 0 {
                     let error_rate = (error as f64 / sent as f64) * 100.0;
                     if error_rate > 10.0 {
-                        println!("\n{} High error rate detected: {:.2}% errors", "WARNING".yellow(), error_rate);
+                        pb_clone.println(format!("{} High error rate detected: {:.2}% errors", "WARNING".yellow(), error_rate));
                     }
                 }
                 
                 if avg_time > 1500.0 {
-                    println!("\n{} Average response time is high: {:.2}ms", "WARNING".yellow(), avg_time);
+                    pb_clone.println(format!("{} Average response time is high: {:.2}ms", "WARNING".yellow(), avg_time));
                 }
             }
         }
