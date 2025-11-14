@@ -64,6 +64,10 @@ pub struct Args {
     /// Proxy to use for requests (format: "http://proxy:port") - ignored for UDP
     #[clap(short = 'x', long, value_parser)]
     pub proxy: Option<String>,
+
+    /// File containing a list of proxies to use (one per line) - ignored for UDP
+    #[clap(long, value_parser)]
+    pub proxy_file: Option<String>,
     
     /// Number of concurrent requests (default: 100 for unlimited, 20 for timed)
     #[clap(short = 'c', long, value_parser)]
