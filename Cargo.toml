@@ -14,7 +14,7 @@ categories = ["command-line-utilities", "network-programming", "development-tool
 
 [dependencies]
 tokio = { version = "1.0", features = ["full"] }
-reqwest = { version = "0.11", features = ["json", "stream"] }
+reqwest = { version = "0.11", features = ["json", "stream", "socks"] }
 clap = { version = "4.0", features = ["derive"] }
 colored = "2.0"
 indicatif = "0.17"
