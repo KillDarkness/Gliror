@@ -94,6 +94,20 @@ async fn main() {
         }
     }
     
+    let mut proxies: Vec<String> = Vec::new();
+    if let Some(proxy_file_path) = &args.proxy_file {
+        match fs::read_to_string(proxy_file_path) {
+            Ok(content) => {
+                proxies.extend(content.lines().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()));
+            }
+            Err(e) => {
+                eprintln!("{} Failed to read proxy file '{}': {}", "ERROR".red(), proxy_file_path, e);
+            }
+        }
+    } else if let Some(proxy) = &args.proxy {
+        proxies.push(proxy.clone());
+    }
+
     if std::env::args().any(|arg| arg == "--version" || arg == "-V") {
         println!("GLIROR {}", env!("CARGO_PKG_VERSION"));
         return;
@@ -124,21 +138,21 @@ async fn main() {
         
         if args.role.as_deref() == Some("master") {
             println!("{} Running in master mode", "INFO".blue());
-            run_master_node(args).await;
+            run_master_node(args, proxies).await;
         } else if args.role.as_deref() == Some("worker") {
             println!("{} Running in worker mode with ID: {}", "INFO".blue(), worker_id);
-            run_worker_node(args).await;
+            run_worker_node(args, proxies).await;
         } else {
             // Default to standalone mode
-            handle_standalone_attack(args).await;
+            handle_standalone_attack(args, proxies).await;
         }
     } else {
         // Default to standalone mode
-        handle_standalone_attack(args).await;
+        handle_standalone_attack(args, proxies).await;
     }
 }
 
-async fn handle_standalone_attack(args: Args) {
+async fn handle_standalone_attack(args: Args, proxies: Vec<String>) {
     if args.attack_type == "udp" {
         // Handle UDP attack
         let target_host = if let Some(ref host) = args.host {
@@ -241,18 +255,22 @@ async fn handle_standalone_attack(args: Args) {
         println!("{} Duration: {} seconds", "INFO".blue(), if duration == 0 { "Unlimited".to_string() } else { duration.to_string() });
         println!("{} Concurrent requests: {}", "INFO".blue(), 
                  args.concurrent.unwrap_or(if duration == 0 { 100 } else { 20 }));
-        if let Some(ref proxy) = args.proxy {
-            println!("{} Proxy: {}", "INFO".blue(), proxy);
+        if !proxies.is_empty() {
+            if proxies.len() == 1 {
+                println!("{} Proxy: {}", "INFO".blue(), &proxies[0]);
+            } else {
+                println!("{} Proxies: {} (rotation enabled)", "INFO".blue(), proxies.len());
+            }
         }
         
-        perform_attack(target_url, duration, args.method, headers, args.data, args.proxy, args.concurrent, args.delay, args.output, args.ramp_up, args.schedule, args.random_ua).await;
+        perform_attack(target_url, duration, args.method, headers, args.data, proxies, args.concurrent, args.delay, args.output, args.ramp_up, args.schedule, args.random_ua).await;
     }
 }
 
 use cluster::server::run_master_server;
 use std::sync::Arc;
 
-async fn run_master_node(args: Args) {
+async fn run_master_node(args: Args, proxies: Vec<String>) {
     let args_clone = args.clone();
     let coordinator_addr = if let Some(addr) = args_clone.coordinator_addr {
         // If coordinator address is provided, use it as is
@@ -331,7 +349,7 @@ async fn run_master_node(args: Args) {
         method: args.method.clone(),
         header: args.header.clone(),
         data: args.data.clone(),
-        proxy: args.proxy.clone(),
+        proxies: proxies.clone(),
         concurrent: Some(effective_concurrent),
         delay: args.delay,
         output: args.output.clone(),
@@ -404,7 +422,7 @@ use std::time::{Duration, Instant};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-async fn run_worker_node(args: Args) {
+async fn run_worker_node(args: Args, _proxies: Vec<String>) {
     let args_clone = args.clone();
     let worker_id = args_clone.worker_id.unwrap_or_else(|| {
         use uuid::Uuid;
@@ -655,8 +673,25 @@ async fn run_worker_node(args: Args) {
                             }
                         } else {
                             // HTTP attack implementation for worker (original)
-                            for _ in 0..task.concurrent.unwrap_or(10) {
-                                let client_clone = client.clone();
+                            for i in 0..task.concurrent.unwrap_or(10) {
+                                let client_clone = if !task.proxies.is_empty() {
+                                    let proxy_url = &task.proxies[i as usize % task.proxies.len()];
+                                    match reqwest::Proxy::all(proxy_url) {
+                                        Ok(proxy) => reqwest::Client::builder()
+                                            .proxy(proxy)
+                                            .build()
+                                            .unwrap_or_else(|e| {
+                                                eprintln!("{} Failed to build proxy client: {}", "ERROR".red(), e);
+                                                client.clone()
+                                            }),
+                                        Err(e) => {
+                                            eprintln!("{} Invalid proxy URL '{}': {}", "ERROR".red(), proxy_url, e);
+                                            client.clone()
+                                        }
+                                    }
+                                } else {
+                                    client.clone()
+                                };
                                 let url_clone = task.url.clone();
                                 let method_clone = task.method.clone();
                                 let headers = parse_headers(&task.header);
