@@ -89,7 +89,7 @@ pub struct AttackCommand {
     pub method: String,
     pub header: Vec<String>,
     pub data: Option<String>,
-    pub proxy: Option<String>,
+    pub proxies: Vec<String>,
     pub concurrent: Option<u32>,
     pub delay: u64,
     pub output: Option<String>,
